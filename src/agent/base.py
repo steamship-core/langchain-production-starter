@@ -1,121 +1,48 @@
-"""Define your LangChain chatbot."""
-import re
 import uuid
-from abc import abstractmethod
-from typing import List, Optional
+from abc import ABC, abstractmethod
+from typing import List
 
-from langchain.agents import AgentExecutor
-from langchain.tools import Tool
-from steamship import Block
+from langchain.agents import Tool, AgentExecutor
+from langchain.memory.chat_memory import BaseChatMemory
+from steamship import Block, Steamship
+from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
+from steamship.agents.mixins.transports.telegram import TelegramTransport, TelegramTransportConfig
+from steamship.agents.schema import (
+    AgentContext,
+    Metadata,
+    Action,
+    FinishAction,
+    Agent,
+)
+from steamship.agents.service.agent_service import AgentService
 from steamship.data.tags.tag_constants import RoleTag
-from steamship.experimental.package_starters.telegram_bot import TelegramBot
 from steamship.invocable import post
 
-UUID_PATTERN = re.compile(
-    r"([0-9A-Za-z]{8}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{12})"
-)
+from agent.utils import is_uuid, UUID_PATTERN
 
-MAX_FREE_MESSAGES = 10
-
-
-class ChatMessage(Block):
-    who: str = "bot"
-
-    def __init__(self, chat_id: str, **kwargs):
-        super().__init__(**kwargs)
-        self.set_chat_id(chat_id)
-        self.set_chat_role(RoleTag.AGENT)
+MODEL_NAME = "gpt-3.5-turbo"  # or "gpt-4.0"
+TEMPERATURE = 0.7
+VERBOSE = True
 
 
-def is_uuid(uuid_to_test: str, version: int = 4) -> bool:
-    """Check a string to see if it is actually a UUID."""
-    lowered = uuid_to_test.lower()
-    try:
-        return str(uuid.UUID(lowered, version=version)) == lowered
-    except ValueError:
-        return False
+class LangChainAgent(Agent, ABC):
+    tools: List[Tool] = None
 
-
-class LangChainAgentBot(TelegramBot):
     @abstractmethod
-    def get_agent(self, chat_id: str) -> AgentExecutor:
+    def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
         raise NotImplementedError()
 
-    def voice_tool(self) -> Optional[Tool]:
-        return None
+    @abstractmethod
+    def get_memory(self, client: Steamship, chat_id: str) -> BaseChatMemory:
+        raise NotImplementedError()
 
-    def is_verbose_logging_enabled(self):
-        return True
+    @abstractmethod
+    def get_tools(self, client: Steamship, chat_id: str) -> List[Tool]:
+        raise NotImplementedError()
 
-    @post("send_message")
-    def send_message(self, message: str, chat_id: str) -> str:
-        """Send a message to Telegram.
-
-        Note: This is a private endpoint that requires authentication."""
-        message = ChatMessage(text=message, chat_id=chat_id)
-        self.telegram_transport.send([message], metadata={})
-        return "ok"
-
-    def _invoke_later(self, delay_ms: int, message: str, chat_id: str):
-        self.invoke_later(
-            "send_message",
-            delay_ms=delay_ms,
-            arguments={
-                "message": message,
-                "chat_id": chat_id,
-            },
-        )
-
-    def create_response(self, incoming_message: Block) -> Optional[List[ChatMessage]]:
-        """Use the LLM to prepare the next response by appending the user input to the file and then generating."""
-        chat_id = incoming_message.chat_id
-        if hasattr(self.config, "chat_ids") and self.config.chat_ids:
-            if chat_id not in self.config.chat_ids.split(","):
-                if (
-                        hasattr(self, "get_memory")
-                        and len(self.get_memory(chat_id).buffer) > MAX_FREE_MESSAGES
-                ):
-                    return [
-                        ChatMessage(
-                            text="Thanks for trying out my bot!", chat_id=chat_id
-                        ),
-                        ChatMessage(
-                            text="Please deploy your own version to continue chatting.",
-                            chat_id=chat_id,
-                        ),
-                        ChatMessage(
-                            text="Learn how on: https://github.com/steamship-packages/langchain-agent-production-starter/",
-                            chat_id=chat_id,
-                        ),
-                    ]
-
-        if incoming_message.text == "/start":
-            message = ChatMessage(text="New conversation started.", chat_id=chat_id)
-            return [message]
-
-        conversation = self.get_agent(
-            chat_id=chat_id,
-        )
-        response = conversation.run(input=incoming_message.text)
-        response = UUID_PATTERN.split(response)
-        response = [re.sub(r"^\W+", "", el) for el in response]
-        if audio_tool := self.voice_tool():
-            response_messages = []
-            for message in response:
-                response_messages.append(message)
-                if not is_uuid(message):
-                    audio_uuid = audio_tool.run(message)
-                    response_messages.append(audio_uuid)
-        else:
-            response_messages = response
-
-        return self.agent_output_to_chat_messages(
-            chat_id=chat_id, response_messages=response_messages
-        )
-
-    def agent_output_to_chat_messages(
-            self, chat_id: str, response_messages: List[str]
-    ) -> List[ChatMessage]:
+    def _agent_output_to_chat_messages(
+            self, client: Steamship, chat_id: str, response_messages: List[str]
+    ) -> List[Block]:
         """Transform the output of the Multi-Modal Agent into a list of ChatMessage objects.
 
         The response of a Multi-Modal Agent contains one or more:
@@ -127,16 +54,83 @@ class LangChainAgentBot(TelegramBot):
         ret = []
         for response in response_messages:
             if is_uuid(response):
-                block = Block.get(self.client, _id=response)
+                block = Block.get(client, _id=response)
                 block.set_public_data(True)
-                message = ChatMessage(**block.dict(), client=self.client, chat_id=chat_id)
+                message = Block(**block.dict(), client=client)
                 message.url = block.raw_data_url
                 message.set_chat_role(RoleTag.AGENT)
-                message.who = "bot"
             else:
-                message = ChatMessage(
+                message = Block(
                     text=response,
-                    chat_id=chat_id,
                 )
             ret.append(message)
         return ret
+
+    def next_action(self, context: AgentContext) -> Action:
+        chat_id = context.metadata.get("chat_id")
+
+        incoming_message = context.chat_history.last_user_message
+
+        if incoming_message.text == "/start":
+            message = Block(text="New conversation started.")
+            return FinishAction(output=[message])
+
+        conversation = self.get_agent(
+            client=context.client,
+            chat_id=chat_id,
+        )
+        response = conversation.run(input=incoming_message.text)
+        response = UUID_PATTERN.split(response)
+        output_messages = self._agent_output_to_chat_messages(client=context.client,
+                                                              chat_id=chat_id,
+                                                              response_messages=response)
+        output_messages.append(Block(text=f"Chat id: {chat_id}"))
+        return FinishAction(output=output_messages)
+
+
+class LangChainTelegramBot(AgentService):
+    """Deployable Multimodal Agent that illustrates a character personality with voice.
+
+    NOTE: To extend and deploy this agent, copy and paste the code into api.py.
+    """
+    config: TelegramTransportConfig
+
+    def __init__(self, agent: LangChainAgent, **kwargs):
+        super().__init__(**kwargs)
+
+        self._agent = agent
+
+        self.add_mixin(
+            SteamshipWidgetTransport(
+                client=self.client, agent_service=self, agent=self._agent
+            )
+        )
+
+        self.add_mixin(
+            TelegramTransport(
+                client=self.client,
+                config=self.config,
+                agent_service=self,
+                agent=self._agent
+            )
+        )
+
+    @post("prompt")
+    def prompt(self, prompt: str) -> str:
+        """Run an agent with the provided text as the input."""
+
+        context = AgentContext.get_or_create(self.client, {"id": str(uuid.uuid4()),
+                                                           "chat_id": "123"})
+        context.chat_history.append_user_message(prompt)
+
+        output = ""
+
+        def sync_emit(blocks: List[Block], meta: Metadata):
+            nonlocal output
+            output += "\n".join(
+                [b.text if b.is_text() else f"({b.mime_type}: {b.id})" for b in blocks]
+            )
+
+        context.emit_funcs.append(sync_emit)
+        self.run_agent(self._agent, context)
+        return output
