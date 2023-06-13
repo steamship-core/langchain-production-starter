@@ -1,24 +1,15 @@
 import logging
+import os
 import sys
 
 sys.path.insert(0, "src")
 from functools import partial
 from typing import List
+from agent.base import ChatMessage
 
-from steamship.experimental.transports.chat import ChatMessage
-from steamship import Steamship, SteamshipError
-from steamship.cli.ship_spinner import ship_spinner
+from steamship import Steamship, SteamshipError, Block
 from termcolor import colored
 from api import LangChainTelegramChatbot
-
-
-def show_results(response_messages: List[ChatMessage]):
-    print(colored("\nResults: ", "blue", attrs=["bold"]))
-    for message in response_messages:
-        if message.mime_type:
-            print(message.url, end="\n\n")
-        else:
-            print(message.text, end="\n\n")
 
 
 class LoggingDisabled:
@@ -31,45 +22,41 @@ class LoggingDisabled:
         logging.disable(logging.NOTSET)
 
 
+def show_results(response_messages: List[Block]):
+    print(colored("\nResults: ", "blue", attrs=["bold"]))
+    for message in response_messages:
+        print(message.url if message.mime_type else message.text, end="\n\n")
+
+
 def main():
     Steamship()
 
     with Steamship.temporary_workspace() as client:
         run = partial(
             run_agent,
-            agent=LangChainTelegramChatbot(client=client, config={"bot_token": "test"}),
+            agent=LangChainTelegramChatbot(
+                client=client,
+                config={
+                    "bot_token": "test",
+                    "elevenlabs_voice_id": os.environ.get("ELEVENLABS_VOICE_ID"),
+                    "elevenlabs_api_key": os.environ.get("ELEVENLABS_API_KEY"),
+                },
+            ),
         )
         print(f"Starting Agent...")
-
         print(
             f"If you make code changes, you will need to restart this client. Press CTRL+C to exit at any time.\n"
         )
-
-        count = 1
-
         while True:
-            print(f"----- Agent Run {count} -----")
             prompt = input(colored(f"Prompt: ", "blue"))
             run(
-                # client,
                 prompt=prompt,
             )
-            count += 1
 
 
-def run_agent(agent, prompt: str, as_api: bool = False) -> None:
-    # For Debugging
-    if not agent.is_verbose_logging_enabled():  # display progress when verbose is False
-        print("Running: ", end="")
-        with ship_spinner():
-            response = agent.create_response(
-                incoming_message=ChatMessage(text=prompt, chat_id="123")
-            )
-    else:
-        response = agent.create_response(
-            incoming_message=ChatMessage(text=prompt, chat_id="123")
-        )
-
+def run_agent(agent, prompt: str) -> None:
+    message = ChatMessage(text=prompt, chat_id="123")
+    response = agent.create_response(incoming_message=message)
     show_results(response)
 
 
