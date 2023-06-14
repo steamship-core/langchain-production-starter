@@ -5,8 +5,7 @@ from typing import List
 from langchain.agents import Tool, AgentExecutor
 from langchain.memory.chat_memory import BaseChatMemory
 from steamship import Block, Steamship
-from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
-from steamship.agents.mixins.transports.telegram import TelegramTransport, TelegramTransportConfig
+from steamship.agents.mixins.transports.telegram import TelegramTransportConfig
 from steamship.agents.schema import (
     AgentContext,
     Metadata,
@@ -100,21 +99,6 @@ class LangChainTelegramBot(AgentService):
 
         self._agent = agent
 
-        self.add_mixin(
-            SteamshipWidgetTransport(
-                client=self.client, agent_service=self, agent=self._agent
-            )
-        )
-
-        self.add_mixin(
-            TelegramTransport(
-                client=self.client,
-                config=self.config,
-                agent_service=self,
-                agent=self._agent
-            )
-        )
-
     @post("prompt")
     def prompt(self, prompt: str) -> str:
         """Run an agent with the provided text as the input."""
@@ -132,5 +116,5 @@ class LangChainTelegramBot(AgentService):
             )
 
         context.emit_funcs.append(sync_emit)
-        self.run_agent(self._agent, context)
+        self.run_agent(self._agent, context)  # Maybe I override this
         return output

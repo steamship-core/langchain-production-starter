@@ -1,5 +1,5 @@
-steamship_langchain~=0.0.23
+steamship_langchain==0.0.23
 pytimeparse
 termcolor
-git+https://github.com/steamship-core/python-client
+steamship==2.17.8
 langchain==0.0.168

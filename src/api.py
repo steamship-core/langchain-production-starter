@@ -2,8 +2,10 @@ from typing import List, Type
 
 from langchain.agents import Tool, initialize_agent, AgentType, AgentExecutor
 from langchain.memory import ConversationBufferMemory
+from pydantic import Field
 from steamship import Steamship
-from steamship.agents.mixins.transports.telegram import TelegramTransportConfig
+from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
+from steamship.agents.mixins.transports.telegram import TelegramTransportConfig, TelegramTransport
 from steamship.invocable import Config
 from steamship.utils.repl import AgentREPL
 from steamship_langchain.llms import OpenAIChat
@@ -13,9 +15,8 @@ from agent.base import LangChainAgent, LangChainTelegramBot
 from agent.tools.image import GenerateImageTool
 from agent.tools.my_tool import MyTool
 from agent.tools.search import SearchTool
-from prompts import SUFFIX, FORMAT_INSTRUCTIONS, PREFIX
 
-MODEL_NAME = "gpt-3.5-turbo"  # or "gpt-4.0"
+MODEL_NAME = "gpt-4"  # or "gpt-4.0"
 TEMPERATURE = 0.7
 VERBOSE = True
 
@@ -39,9 +40,9 @@ class MyAgent(LangChainAgent):
             llm,
             agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
             agent_kwargs={
-                "prefix": PREFIX,
-                "suffix": SUFFIX,
-                "format_instructions": FORMAT_INSTRUCTIONS,
+                # "prefix": PREFIX,
+                # "suffix": SUFFIX,
+                # "format_instructions": FORMAT_INSTRUCTIONS,
             },
             verbose=VERBOSE,
             memory=memory,
@@ -66,18 +67,51 @@ class MyAgent(LangChainAgent):
         ]
 
 
-class MyBotConfig(TelegramTransportConfig):
-    pass
+class ChatbotConfig(TelegramTransportConfig):
+    bot_token: str = Field(
+        description="Your telegram bot token.\nLearn how to create one here: "
+                    "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
+    )
+    elevenlabs_api_key: str = Field(
+        default="", description="Optional API KEY for ElevenLabs Voice Bot"
+    )
+    elevenlabs_voice_id: str = Field(
+        default="", description="Optional voice_id for ElevenLabs Voice Bot"
+    )
+    chat_ids: str = Field(
+        default="", description="Comma separated list of whitelisted chat_id's"
+    )
+    use_gpt4: bool = Field(
+        True,
+        description="If True, use GPT-4. Use GPT-3.5 if False. "
+                    "GPT-4 generates better responses at higher cost and latency.",
+    )
 
 
 class MyBot(LangChainTelegramBot):
 
-    @classmethod
-    def config_cls(cls) -> Type[Config]:
-        return MyBotConfig
+    USED_MIXIN_CLASSES = [TelegramTransport, SteamshipWidgetTransport]
 
     def __init__(self, **kwargs):
         super().__init__(agent=MyAgent(), **kwargs)
+        self.add_mixin(
+            SteamshipWidgetTransport(
+                client=self.client, agent_service=self, agent=self._agent
+            )
+        )
+
+        self.add_mixin(
+            TelegramTransport(
+                client=self.client,
+                config=self.config,
+                agent_service=self,
+                agent=self._agent
+            )
+        )
+
+    @classmethod
+    def config_cls(cls) -> Type[Config]:
+        return ChatbotConfig
 
 
 if __name__ == "__main__":
