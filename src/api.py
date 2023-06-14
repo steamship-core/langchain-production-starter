@@ -6,18 +6,16 @@ from langchain.memory import ConversationBufferMemory
 from pydantic import Field
 from steamship.experimental.package_starters.telegram_bot import TelegramBot, TelegramBotConfig
 from steamship.invocable import Config
-from steamship_langchain.llms import OpenAIChat
+from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
 
 from agent.base import LangChainAgentBot
-from agent.prompts import PERSONALITY_PROMPT, SUFFIX, FORMAT_INSTRUCTIONS
 from agent.tools.image import GenerateImageTool
 from agent.tools.my_tool import MyTool
 from agent.tools.reminder import RemindMe
-from agent.tools.speech import GenerateSpeechTool
 from agent.tools.video_message import VideoMessageTool
 
-MODEL_NAME = "gpt-3.5-turbo"  # or "gpt-4.0"
+MODEL_NAME = "gpt-3.5-turbo-0613"  # or "gpt-4.0"
 TEMPERATURE = 0.7
 VERBOSE = True
 
@@ -52,14 +50,13 @@ class LangChainTelegramChatbot(LangChainAgentBot, TelegramBot):
         super().__init__(**kwargs)
         self.model_name = "gpt-4" if self.config.use_gpt4 else "gpt-3.5-turbo"
 
-
     @classmethod
     def config_cls(cls) -> Type[Config]:
         """Return the Configuration class."""
         return ChatbotConfig
 
     def get_agent(self, chat_id: str) -> AgentExecutor:
-        llm = OpenAIChat(
+        llm = ChatOpenAI(
             client=self.client,
             model_name=MODEL_NAME,
             temperature=TEMPERATURE,
@@ -73,23 +70,19 @@ class LangChainTelegramChatbot(LangChainAgentBot, TelegramBot):
         return initialize_agent(
             tools,
             llm,
-            agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
-            agent_kwargs={
-                "prefix": PERSONALITY_PROMPT,
-                "suffix": SUFFIX,
-                "format_instructions": FORMAT_INSTRUCTIONS,
-            },
+            agent=AgentType.OPENAI_FUNCTIONS,
             verbose=VERBOSE,
             memory=memory,
         )
 
     def voice_tool(self) -> Optional[Tool]:
         """Return tool to generate spoken version of output text."""
-        return GenerateSpeechTool(
-            client=self.client,
-            voice_id=self.config.elevenlabs_voice_id,
-            elevenlabs_api_key=self.config.elevenlabs_api_key,
-        )
+        return None
+        # return GenerateSpeechTool(
+        #     client=self.client,
+        #     voice_id=self.config.elevenlabs_voice_id,
+        #     elevenlabs_api_key=self.config.elevenlabs_api_key,
+        # )
 
     def get_memory(self, chat_id):
         if self.context and self.context.invocable_instance_handle:
