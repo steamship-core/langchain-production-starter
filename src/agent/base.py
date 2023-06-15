@@ -1,5 +1,6 @@
+import logging
 import uuid
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import List
 
 from langchain.agents import Tool, AgentExecutor
@@ -9,12 +10,9 @@ from steamship.agents.mixins.transports.telegram import TelegramTransportConfig
 from steamship.agents.schema import (
     AgentContext,
     Metadata,
-    Action,
-    FinishAction,
     Agent,
 )
 from steamship.agents.service.agent_service import AgentService
-from steamship.data.tags.tag_constants import RoleTag
 from steamship.invocable import post
 
 from agent.utils import is_uuid, UUID_PATTERN
@@ -24,8 +22,27 @@ TEMPERATURE = 0.7
 VERBOSE = True
 
 
-class LangChainAgent(Agent, ABC):
-    tools: List[Tool] = None
+def _agent_output_to_chat_messages(
+        client: Steamship, response_messages: List[str]
+) -> List[Block]:
+    """Transform the output of the Multi-Modal Agent into a list of ChatMessage objects.
+
+    The response of a Multi-Modal Agent contains one or more:
+    - parseable UUIDs, representing a block containing binary data, or:
+    - Text
+
+    This method inspects each string and creates a ChatMessage of the appropriate type.
+    """
+    return [Block.get(client, _id=response) if is_uuid(response) else Block(text=response)
+            for response in response_messages]
+
+
+class LangChainTelegramBot(AgentService):
+    """Deployable Multimodal Agent that illustrates a character personality with voice.
+
+    NOTE: To extend and deploy this agent, copy and paste the code into api.py.
+    """
+    config: TelegramTransportConfig
 
     @abstractmethod
     def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
@@ -39,72 +56,39 @@ class LangChainAgent(Agent, ABC):
     def get_tools(self, client: Steamship, chat_id: str) -> List[Tool]:
         raise NotImplementedError()
 
-    def _agent_output_to_chat_messages(
-            self, client: Steamship, chat_id: str, response_messages: List[str]
-    ) -> List[Block]:
-        """Transform the output of the Multi-Modal Agent into a list of ChatMessage objects.
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-        The response of a Multi-Modal Agent contains one or more:
-        - parseable UUIDs, representing a block containing binary data, or:
-        - Text
-
-        This method inspects each string and creates a ChatMessage of the appropriate type.
-        """
-        ret = []
-        for response in response_messages:
-            if is_uuid(response):
-                block = Block.get(client, _id=response)
-                block.set_public_data(True)
-                message = Block(**block.dict(), client=client)
-                message.url = block.raw_data_url
-                message.set_chat_role(RoleTag.AGENT)
-            else:
-                message = Block(
-                    text=response,
-                )
-            ret.append(message)
-        return ret
-
-    def next_action(self, context: AgentContext) -> Action:
-        chat_id = context.metadata.get("chat_id")
-
-        incoming_message = context.chat_history.last_user_message
+    def respond(self, incoming_message: Block, chat_id: str, client: Steamship) -> List[Block]:
 
         if incoming_message.text == "/start":
-            message = Block(text="New conversation started.")
-            return FinishAction(output=[message])
+            return [Block(text="New conversation started.")]
 
         conversation = self.get_agent(
-            client=context.client,
+            client=client,
             chat_id=chat_id,
         )
         response = conversation.run(input=incoming_message.text)
-        response = UUID_PATTERN.split(response)
-        output_messages = self._agent_output_to_chat_messages(client=context.client,
-                                                              chat_id=chat_id,
-                                                              response_messages=response)
+        return [Block.get(self.client, _id=response) if is_uuid(response) else Block(text=response)
+                for response in UUID_PATTERN.split(response)]
+
+    def run_agent(self, agent: Agent, context: AgentContext):
+        chat_id = context.metadata.get("chat_id")
+
+        incoming_message = context.chat_history.last_user_message
+        output_messages = self.respond(incoming_message, chat_id, context.client)
         output_messages.append(Block(text=f"Chat id: {chat_id}"))
-        return FinishAction(output=output_messages)
-
-
-class LangChainTelegramBot(AgentService):
-    """Deployable Multimodal Agent that illustrates a character personality with voice.
-
-    NOTE: To extend and deploy this agent, copy and paste the code into api.py.
-    """
-    config: TelegramTransportConfig
-
-    def __init__(self, agent: LangChainAgent, **kwargs):
-        super().__init__(**kwargs)
-
-        self._agent = agent
+        output_messages.append(Block(text=f"incoming_message: {incoming_message.message_id}"))
+        output_messages.append(Block(text=f"incoming_message: {incoming_message.chat_id}"))
+        for func in context.emit_funcs:
+            logging.info(f"Emitting via function: {func.__name__}")
+            func(output_messages, context.metadata)
 
     @post("prompt")
     def prompt(self, prompt: str) -> str:
         """Run an agent with the provided text as the input."""
 
-        context = AgentContext.get_or_create(self.client, {"id": str(uuid.uuid4()),
-                                                           "chat_id": "123"})
+        context = AgentContext.get_or_create(self.client, {"id": str(uuid.uuid4())})
         context.chat_history.append_user_message(prompt)
 
         output = ""
@@ -116,5 +100,5 @@ class LangChainTelegramBot(AgentService):
             )
 
         context.emit_funcs.append(sync_emit)
-        self.run_agent(self._agent, context)  # Maybe I override this
+        self.run_agent(None, context)  # Maybe I override this
         return output
