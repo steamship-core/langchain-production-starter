@@ -5,7 +5,10 @@ from langchain.memory import ConversationBufferMemory
 from pydantic import Field
 from steamship import Steamship
 from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
-from steamship.agents.mixins.transports.telegram import TelegramTransportConfig, TelegramTransport
+from steamship.agents.mixins.transports.telegram import (
+    TelegramTransportConfig,
+    TelegramTransport,
+)
 from steamship.invocable import Config
 from steamship.utils.repl import AgentREPL
 from steamship_langchain.llms import OpenAIChat
@@ -24,7 +27,7 @@ VERBOSE = True
 class ChatbotConfig(TelegramTransportConfig):
     bot_token: str = Field(
         description="Your telegram bot token.\nLearn how to create one here: "
-                    "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
+        "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
     )
     elevenlabs_api_key: str = Field(
         default="", description="Optional API KEY for ElevenLabs Voice Bot"
@@ -38,7 +41,7 @@ class ChatbotConfig(TelegramTransportConfig):
     use_gpt4: bool = Field(
         True,
         description="If True, use GPT-4. Use GPT-3.5 if False. "
-                    "GPT-4 generates better responses at higher cost and latency.",
+        "GPT-4 generates better responses at higher cost and latency.",
     )
 
 
@@ -61,11 +64,6 @@ class MyBot(LangChainTelegramBot):
             tools,
             llm,
             agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
-            agent_kwargs={
-                # "prefix": PREFIX,
-                # "suffix": SUFFIX,
-                # "format_instructions": FORMAT_INSTRUCTIONS,
-            },
             verbose=VERBOSE,
             memory=memory,
         )
@@ -87,23 +85,6 @@ class MyBot(LangChainTelegramBot):
             GenerateImageTool(client),
             # VideoMessageTool(client),
         ]
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.add_mixin(
-            SteamshipWidgetTransport(
-                client=self.client, agent_service=self, agent=None
-            )
-        )
-
-        self.add_mixin(
-            TelegramTransport(
-                client=self.client,
-                config=self.config,
-                agent_service=self,
-                agent=None
-            )
-        )
 
     @classmethod
     def config_cls(cls) -> Type[Config]:

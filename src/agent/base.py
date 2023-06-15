@@ -6,7 +6,11 @@ from typing import List
 from langchain.agents import Tool, AgentExecutor
 from langchain.memory.chat_memory import BaseChatMemory
 from steamship import Block, Steamship
-from steamship.agents.mixins.transports.telegram import TelegramTransportConfig
+from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
+from steamship.agents.mixins.transports.telegram import (
+    TelegramTransportConfig,
+    TelegramTransport,
+)
 from steamship.agents.schema import (
     AgentContext,
     Metadata,
@@ -23,7 +27,7 @@ VERBOSE = True
 
 
 def _agent_output_to_chat_messages(
-        client: Steamship, response_messages: List[str]
+    client: Steamship, response_messages: List[str]
 ) -> List[Block]:
     """Transform the output of the Multi-Modal Agent into a list of ChatMessage objects.
 
@@ -33,8 +37,10 @@ def _agent_output_to_chat_messages(
 
     This method inspects each string and creates a ChatMessage of the appropriate type.
     """
-    return [Block.get(client, _id=response) if is_uuid(response) else Block(text=response)
-            for response in response_messages]
+    return [
+        Block.get(client, _id=response) if is_uuid(response) else Block(text=response)
+        for response in response_messages
+    ]
 
 
 class LangChainTelegramBot(AgentService):
@@ -42,7 +48,20 @@ class LangChainTelegramBot(AgentService):
 
     NOTE: To extend and deploy this agent, copy and paste the code into api.py.
     """
+
     config: TelegramTransportConfig
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.add_mixin(
+            SteamshipWidgetTransport(client=self.client, agent_service=self, agent=None)
+        )
+
+        self.add_mixin(
+            TelegramTransport(
+                client=self.client, config=self.config, agent_service=self, agent=None
+            )
+        )
 
     @abstractmethod
     def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
@@ -56,10 +75,9 @@ class LangChainTelegramBot(AgentService):
     def get_tools(self, client: Steamship, chat_id: str) -> List[Tool]:
         raise NotImplementedError()
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def respond(self, incoming_message: Block, chat_id: str, client: Steamship) -> List[Block]:
+    def respond(
+        self, incoming_message: Block, chat_id: str, client: Steamship
+    ) -> List[Block]:
 
         if incoming_message.text == "/start":
             return [Block(text="New conversation started.")]
@@ -69,17 +87,18 @@ class LangChainTelegramBot(AgentService):
             chat_id=chat_id,
         )
         response = conversation.run(input=incoming_message.text)
-        return [Block.get(self.client, _id=response) if is_uuid(response) else Block(text=response)
-                for response in UUID_PATTERN.split(response)]
+        return [
+            Block.get(self.client, _id=response)
+            if is_uuid(response)
+            else Block(text=response)
+            for response in UUID_PATTERN.split(response)
+        ]
 
     def run_agent(self, agent: Agent, context: AgentContext):
         chat_id = context.metadata.get("chat_id")
 
         incoming_message = context.chat_history.last_user_message
         output_messages = self.respond(incoming_message, chat_id, context.client)
-        output_messages.append(Block(text=f"Chat id: {chat_id}"))
-        output_messages.append(Block(text=f"incoming_message: {incoming_message.message_id}"))
-        output_messages.append(Block(text=f"incoming_message: {incoming_message.chat_id}"))
         for func in context.emit_funcs:
             logging.info(f"Emitting via function: {func.__name__}")
             func(output_messages, context.metadata)
