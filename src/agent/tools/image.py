@@ -11,7 +11,7 @@ NAME = "GenerateImage"
 
 DESCRIPTION = """
 Useful for when you need to generate an image. 
-Input: A detailed dall-e prompt describing an image 
+Input: A detailed prompt describing an image 
 Output: the UUID of a generated image
 """
 

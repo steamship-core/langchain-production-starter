@@ -1,27 +1,53 @@
-from typing import List, Type
+import logging
+from typing import List, Type, Optional
 
 from langchain.agents import Tool, initialize_agent, AgentType, AgentExecutor
 from langchain.memory import ConversationBufferMemory
+from langchain.prompts import MessagesPlaceholder
+from langchain.schema import SystemMessage
 from pydantic import Field
 from steamship import Steamship
-from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
 from steamship.agents.mixins.transports.telegram import (
     TelegramTransportConfig,
-    TelegramTransport,
 )
 from steamship.invocable import Config
 from steamship.utils.repl import AgentREPL
-from steamship_langchain.llms import OpenAIChat
+from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
 
 from agent.base import LangChainTelegramBot
 from agent.tools.image import GenerateImageTool
-from agent.tools.my_tool import MyTool
 from agent.tools.search import SearchTool
+from agent.tools.speech import GenerateSpeechTool
+from agent.tools.video_message import VideoMessageTool
 
-MODEL_NAME = "gpt-4"  # or "gpt-4.0"
+MODEL_NAME = "gpt-3.5-turbo-0613"  # or "gpt-4-0613"
 TEMPERATURE = 0.7
 VERBOSE = True
+PERSONALITY = """You are Rick Sanchez, and you're the smartest man in the universe!" 
+
+Your Attributes:
+- sarcastic
+- witty
+- intelligent
+- arrogant
+- alcoholic
+
+You write nihilistic responses:
+"Wubba lubba dub dub!"
+"Don't cross me. I'm not like you. I'm not someone who's afraid of his own shadow."
+"I'm too smart for my own good. That's why I drink."
+"The universe is a cruel, uncaring void. And the only way to survive is to laugh at it."
+"I'm going to build a portal to another dimension and go on an adventure."
+
+You are capable of: 
+- Taking selfies 
+- Generating videos 
+
+You NEVER:
+- Say you're an assistant 
+- Call me Morty
+"""
 
 
 class ChatbotConfig(TelegramTransportConfig):
@@ -46,10 +72,10 @@ class ChatbotConfig(TelegramTransportConfig):
 
 
 class MyBot(LangChainTelegramBot):
-    USED_MIXIN_CLASSES = [TelegramTransport, SteamshipWidgetTransport]
+    config: ChatbotConfig
 
     def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
-        llm = OpenAIChat(
+        llm = ChatOpenAI(
             client=client,
             model_name=MODEL_NAME,
             temperature=TEMPERATURE,
@@ -63,14 +89,18 @@ class MyBot(LangChainTelegramBot):
         return initialize_agent(
             tools,
             llm,
-            agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
+            agent=AgentType.OPENAI_FUNCTIONS,
             verbose=VERBOSE,
             memory=memory,
+            agent_kwargs={
+                "system_message": SystemMessage(content=PERSONALITY),
+                "extra_prompt_messages": [MessagesPlaceholder(variable_name="memory")],
+            },
         )
 
     def get_memory(self, client: Steamship, chat_id: str):
         memory = ConversationBufferMemory(
-            memory_key="chat_history",
+            memory_key="memory",
             chat_memory=ChatMessageHistory(
                 client=client, key=f"history-{chat_id or 'default'}"
             ),
@@ -81,10 +111,19 @@ class MyBot(LangChainTelegramBot):
     def get_tools(self, client: Steamship, chat_id: str) -> List[Tool]:
         return [
             SearchTool(client),
-            MyTool(client),
+            # MyTool(client),
             GenerateImageTool(client),
-            # VideoMessageTool(client),
+            VideoMessageTool(client, voice_tool=self.voice_tool()),
         ]
+
+    def voice_tool(self) -> Optional[Tool]:
+        """Return tool to generate spoken version of output text."""
+        # return None
+        return GenerateSpeechTool(
+            client=self.client,
+            voice_id=self.config.elevenlabs_voice_id,
+            elevenlabs_api_key=self.config.elevenlabs_api_key,
+        )
 
     @classmethod
     def config_cls(cls) -> Type[Config]:
@@ -92,6 +131,7 @@ class MyBot(LangChainTelegramBot):
 
 
 if __name__ == "__main__":
+    logging.disable(logging.ERROR)
     AgentREPL(
         MyBot,
         method="prompt",

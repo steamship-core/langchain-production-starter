@@ -1,7 +1,8 @@
 import logging
+import re
 import uuid
 from abc import abstractmethod
-from typing import List
+from typing import List, Optional
 
 from langchain.agents import Tool, AgentExecutor
 from langchain.memory.chat_memory import BaseChatMemory
@@ -21,27 +22,6 @@ from steamship.invocable import post
 
 from agent.utils import is_uuid, UUID_PATTERN
 
-MODEL_NAME = "gpt-3.5-turbo"  # or "gpt-4.0"
-TEMPERATURE = 0.7
-VERBOSE = True
-
-
-def _agent_output_to_chat_messages(
-    client: Steamship, response_messages: List[str]
-) -> List[Block]:
-    """Transform the output of the Multi-Modal Agent into a list of ChatMessage objects.
-
-    The response of a Multi-Modal Agent contains one or more:
-    - parseable UUIDs, representing a block containing binary data, or:
-    - Text
-
-    This method inspects each string and creates a ChatMessage of the appropriate type.
-    """
-    return [
-        Block.get(client, _id=response) if is_uuid(response) else Block(text=response)
-        for response in response_messages
-    ]
-
 
 class LangChainTelegramBot(AgentService):
     """Deployable Multimodal Agent that illustrates a character personality with voice.
@@ -49,6 +29,7 @@ class LangChainTelegramBot(AgentService):
     NOTE: To extend and deploy this agent, copy and paste the code into api.py.
     """
 
+    USED_MIXIN_CLASSES = [TelegramTransport, SteamshipWidgetTransport]
     config: TelegramTransportConfig
 
     def __init__(self, **kwargs):
@@ -75,23 +56,48 @@ class LangChainTelegramBot(AgentService):
     def get_tools(self, client: Steamship, chat_id: str) -> List[Tool]:
         raise NotImplementedError()
 
+    def voice_tool(self) -> Optional[Tool]:
+        return None
+
     def respond(
         self, incoming_message: Block, chat_id: str, client: Steamship
     ) -> List[Block]:
 
         if incoming_message.text == "/start":
-            return [Block(text="New conversation started.")]
+            return [Block(text=f"New conversation started. chat_id: {chat_id}")]
+
+        if incoming_message.text == "/reset":
+            self.get_memory(self.client, chat_id).chat_memory.clear()
+            return [Block(text="Conversation log cleared.")]
 
         conversation = self.get_agent(
             client=client,
             chat_id=chat_id,
         )
         response = conversation.run(input=incoming_message.text)
+
+        def replace_markdown_with_uuid(text):
+            pattern = r"(?:!\[.*?\]|)\((.*?)://?(.*?)\)"
+            return re.sub(pattern, r"\2", text)
+
+        response = replace_markdown_with_uuid(response)
+        response = UUID_PATTERN.split(response)
+        response = [re.sub(r"^\W+", "", el) for el in response]
+        if audio_tool := self.voice_tool():
+            response_messages = []
+            for message in response:
+                response_messages.append(message)
+                if not is_uuid(message):
+                    audio_uuid = audio_tool.run(message)
+                    response_messages.append(audio_uuid)
+        else:
+            response_messages = response
+
         return [
             Block.get(self.client, _id=response)
             if is_uuid(response)
             else Block(text=response)
-            for response in UUID_PATTERN.split(response)
+            for response in response_messages
         ]
 
     def run_agent(self, agent: Agent, context: AgentContext):
@@ -114,9 +120,12 @@ class LangChainTelegramBot(AgentService):
 
         def sync_emit(blocks: List[Block], meta: Metadata):
             nonlocal output
-            output += "\n".join(
-                [b.text if b.is_text() else f"({b.mime_type}: {b.id})" for b in blocks]
-            )
+            for block in blocks:
+                if not block.is_text():
+                    block.set_public_data(True)
+                    output += f"({block.mime_type}: {block.raw_data_url})\n"
+                else:
+                    output += f"{block.text}\n"
 
         context.emit_funcs.append(sync_emit)
         self.run_agent(None, context)  # Maybe I override this

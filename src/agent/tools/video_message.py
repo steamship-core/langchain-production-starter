@@ -1,8 +1,12 @@
 """Tool for generating images."""
 import logging
+import uuid
+from typing import Optional
 
 from langchain.agents import Tool
 from steamship import Steamship, Block, SteamshipError
+from steamship.data.workspace import SignedUrl
+from steamship.utils.signed_urls import upload_to_signed_url
 
 NAME = "VideoMessage"
 
@@ -19,10 +23,15 @@ class VideoMessageTool(Tool):
     """Tool used to generate images from a text-prompt."""
 
     client: Steamship
+    voice_tool: Optional[Tool]
 
-    def __init__(self, client: Steamship):
+    def __init__(self, client: Steamship, voice_tool: Optional[Tool] = None):
         super().__init__(
-            name=NAME, func=self.run, description=DESCRIPTION, client=client
+            name=NAME,
+            func=self.run,
+            description=DESCRIPTION,
+            client=client,
+            voice_tool=voice_tool,
         )
 
     @property
@@ -33,24 +42,27 @@ class VideoMessageTool(Tool):
     def run(self, prompt: str, **kwargs) -> str:
         """Generate a video."""
         video_generator = self.client.use_plugin(PLUGIN_HANDLE)
-        print("Video generator")
+
+        audio_url = None
+        if self.voice_tool:
+            block_uuid = self.voice_tool.run(prompt)
+            audio_url = make_block_public(
+                self.client, Block.get(self.client, _id=block_uuid)
+            )
+
         task = video_generator.generate(
-            text=prompt,
+            text="" if audio_url else prompt,
             append_output_to_file=True,
             options={
-                "source_url": "https://www.steamship.com/images/agents/man-in-suit-midjourney.png",
-                "stitch": True,
-                "provider": {
-                    "type": "microsoft",
-                    "voice_id": "en-US-AshleyNeural",
-                    "voice_config": {"style": "Default"},
-                    "expressions": [
-                        {"start_frame": 0, "expression": "surprise", "intensity": 1.0},
-                        {"start_frame": 50, "expression": "happy", "intensity": 1.0},
-                        {"start_frame": 100, "expression": "serious", "intensity": 0.6},
-                        {"start_frame": 150, "expression": "neutral", "intensity": 1.0},
-                    ],
-                },
+                "source_url": "https://i.redd.it/m65t9q5cwuk91.png",
+                "audio_url": audio_url,
+                "provider": None,
+                "expressions": [
+                    {"start_frame": 0, "expression": "surprise", "intensity": 1.0},
+                    {"start_frame": 50, "expression": "happy", "intensity": 1.0},
+                    {"start_frame": 100, "expression": "serious", "intensity": 0.6},
+                    {"start_frame": 150, "expression": "neutral", "intensity": 1.0},
+                ],
                 "transition_frames": 20,
             },
         )
@@ -63,10 +75,29 @@ class VideoMessageTool(Tool):
         raise SteamshipError(f"[{self.name}] Tool unable to generate image!")
 
 
-if __name__ == "__main__":
-    with Steamship.temporary_workspace() as client:
-        tool = VideoMessageTool(client=client)
-        id = tool.run("Unlike anything you experienced before")
-        b = Block.get(client=client, _id=id)
-        b.set_public_data(True)
-        print(b.raw_data_url)
+def make_block_public(client, block):
+    filepath = f"{uuid.uuid4()}.{block.mime_type.split('/')[1].lower()}"
+    signed_url = (
+        client.get_workspace()
+        .create_signed_url(
+            SignedUrl.Request(
+                bucket=SignedUrl.Bucket.PLUGIN_DATA,
+                filepath=filepath,
+                operation=SignedUrl.Operation.WRITE,
+            )
+        )
+        .signed_url
+    )
+    read_signed_url = (
+        client.get_workspace()
+        .create_signed_url(
+            SignedUrl.Request(
+                bucket=SignedUrl.Bucket.PLUGIN_DATA,
+                filepath=filepath,
+                operation=SignedUrl.Operation.READ,
+            )
+        )
+        .signed_url
+    )
+    upload_to_signed_url(signed_url, block.raw())
+    return read_signed_url
