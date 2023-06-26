@@ -7,15 +7,12 @@ from langchain.prompts import MessagesPlaceholder
 from langchain.schema import SystemMessage
 from pydantic import Field
 from steamship import Steamship
-from steamship.agents.mixins.transports.telegram import (
-    TelegramTransportConfig,
-)
 from steamship.invocable import Config
 from steamship.utils.repl import AgentREPL
 from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
 
-from agent.base import LangChainTelegramBot
+from agent.base import LangChainTelegramBot, TelegramTransportConfig
 from agent.tools.image import GenerateImageTool
 from agent.tools.search import SearchTool
 from agent.tools.speech import GenerateSpeechTool
@@ -60,9 +57,6 @@ class ChatbotConfig(TelegramTransportConfig):
     )
     elevenlabs_voice_id: str = Field(
         default="", description="Optional voice_id for ElevenLabs Voice Bot"
-    )
-    chat_ids: str = Field(
-        default="", description="Comma separated list of whitelisted chat_id's"
     )
     use_gpt4: bool = Field(
         True,
