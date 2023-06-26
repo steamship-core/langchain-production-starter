@@ -2,25 +2,31 @@ import logging
 import re
 import uuid
 from abc import abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Type
 
+import requests
 from langchain.agents import Tool, AgentExecutor
 from langchain.memory.chat_memory import BaseChatMemory
+from pydantic import Field
 from steamship import Block, Steamship
 from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
-from steamship.agents.mixins.transports.telegram import (
-    TelegramTransportConfig,
-    TelegramTransport,
-)
 from steamship.agents.schema import (
     AgentContext,
     Metadata,
     Agent,
 )
 from steamship.agents.service.agent_service import AgentService
-from steamship.invocable import post
+from steamship.invocable import post, Config
 
+from agent.telegram import ExtendedTelegramTransport
+from agent.usage_tracking import UsageTracker
 from agent.utils import is_uuid, UUID_PATTERN
+
+
+class TelegramTransportConfig(Config):
+    bot_token: str = Field(description="Telegram bot token, obtained via @BotFather")
+    payment_provider_token: str = Field(description="Payment provider token, obtained via @BotFather")
+    api_base: str = Field("https://api.telegram.org/bot", description="The root API for Telegram")
 
 
 class LangChainTelegramBot(AgentService):
@@ -29,7 +35,29 @@ class LangChainTelegramBot(AgentService):
     NOTE: To extend and deploy this agent, copy and paste the code into api.py.
     """
 
-    USED_MIXIN_CLASSES = [TelegramTransport, SteamshipWidgetTransport]
+    def send_invoice(self, chat_id):
+        response = requests.post(
+            f"{self.config.api_base}{self.config.bot_token}/sendInvoice",
+            json={
+                "chat_id": chat_id,
+                "payload": "50",
+                "currency": "USD",
+                "title": "🍏 50 messages",
+                "description": "Tap the button below and pay",
+                "prices": [{
+                    "label": "🍏 50 messages",
+                    "amount": 599,
+                }],
+                "provider_token": self.config.payment_provider_token
+            },
+        )
+
+    def set_payment_plan(self, pre_checkout_query):
+        chat_id = str(pre_checkout_query["from"]["id"])
+        payload = int(pre_checkout_query["invoice_payload"])
+        self.usage.increase_message_limit(chat_id, payload)
+
+    USED_MIXIN_CLASSES = [ExtendedTelegramTransport, SteamshipWidgetTransport]
     config: TelegramTransportConfig
 
     def __init__(self, **kwargs):
@@ -39,10 +67,16 @@ class LangChainTelegramBot(AgentService):
         )
 
         self.add_mixin(
-            TelegramTransport(
-                client=self.client, config=self.config, agent_service=self, agent=None
+            ExtendedTelegramTransport(
+                client=self.client, config=self.config, agent_service=self, agent=None,
+                set_payment_plan=self.set_payment_plan
             )
         )
+        self.usage = UsageTracker(self.client)
+
+    @classmethod
+    def config_cls(cls) -> Type[Config]:
+        return TelegramTransportConfig
 
     @abstractmethod
     def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
@@ -59,9 +93,31 @@ class LangChainTelegramBot(AgentService):
     def voice_tool(self) -> Optional[Tool]:
         return None
 
+    def check_usage(self, chat_id: str, context: AgentContext) -> bool:
+        if not self.usage.exists(chat_id):
+            self.usage.add_user(chat_id)
+        if self.usage.usage_exceeded(chat_id):
+            self.send_messages(context, [
+                Block(text="🔴 You've used up all your message credits"),
+                Block(
+                    text="Buy message credits to continue chatting."
+                         ""
+                         "Tap the button:"
+                ),
+            ])
+            self.send_invoice(chat_id)
+            return False
+        return True
+
     def respond(
-        self, incoming_message: Block, chat_id: str, client: Steamship
+            self, incoming_message: Block, chat_id: str, context: AgentContext
     ) -> List[Block]:
+
+        if incoming_message.text == "/pay":
+            self.send_invoice(chat_id)
+
+        if not self.check_usage(chat_id, context):
+            return []
 
         if incoming_message.text == "/start":
             return [Block(text=f"New conversation started. chat_id: {chat_id}")]
@@ -71,7 +127,7 @@ class LangChainTelegramBot(AgentService):
             return [Block(text="Conversation log cleared.")]
 
         conversation = self.get_agent(
-            client=client,
+            client=context.client,
             chat_id=chat_id,
         )
         response = conversation.run(input=incoming_message.text)
@@ -93,6 +149,7 @@ class LangChainTelegramBot(AgentService):
         else:
             response_messages = response
 
+        self.usage.increase_message_count(chat_id)
         return [
             Block.get(self.client, _id=response)
             if is_uuid(response)
@@ -100,14 +157,17 @@ class LangChainTelegramBot(AgentService):
             for response in response_messages
         ]
 
+    def send_messages(self, context: AgentContext, output_messages: List[Block]):
+        for func in context.emit_funcs:
+            logging.info(f"Emitting via function: {func.__name__}")
+            func(output_messages, context.metadata)
+
     def run_agent(self, agent: Agent, context: AgentContext):
         chat_id = context.metadata.get("chat_id")
 
         incoming_message = context.chat_history.last_user_message
-        output_messages = self.respond(incoming_message, chat_id, context.client)
-        for func in context.emit_funcs:
-            logging.info(f"Emitting via function: {func.__name__}")
-            func(output_messages, context.metadata)
+        output_messages = self.respond(incoming_message, chat_id or incoming_message.chat_id, context)
+        self.send_messages(context, output_messages)
 
     @post("prompt")
     def prompt(self, prompt: str) -> str:
