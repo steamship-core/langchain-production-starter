@@ -26,6 +26,7 @@ from agent.utils import is_uuid, UUID_PATTERN
 class TelegramTransportConfig(Config):
     bot_token: str = Field(description="Telegram bot token, obtained via @BotFather")
     payment_provider_token: str = Field(description="Payment provider token, obtained via @BotFather")
+    n_free_messages: int = Field(0, description="Number of free messages assigned to new users.")
     api_base: str = Field("https://api.telegram.org/bot", description="The root API for Telegram")
 
 
@@ -36,7 +37,7 @@ class LangChainTelegramBot(AgentService):
     """
 
     def send_invoice(self, chat_id):
-        response = requests.post(
+        requests.post(
             f"{self.config.api_base}{self.config.bot_token}/sendInvoice",
             json={
                 "chat_id": chat_id,
@@ -72,7 +73,7 @@ class LangChainTelegramBot(AgentService):
                 set_payment_plan=self.set_payment_plan
             )
         )
-        self.usage = UsageTracker(self.client)
+        self.usage = UsageTracker(self.client, n_free_messages=self.config.n_free_messages)
 
     @classmethod
     def config_cls(cls) -> Type[Config]:
@@ -113,18 +114,17 @@ class LangChainTelegramBot(AgentService):
             self, incoming_message: Block, chat_id: str, context: AgentContext
     ) -> List[Block]:
 
-        if incoming_message.text == "/pay":
-            self.send_invoice(chat_id)
+        if incoming_message.text == "/balance":
+            usage_entry = self.usage.get_usage(chat_id)
+            return [Block(text=f"You have {usage_entry.message_limit - usage_entry.message_count} messages left. "
+                               f"\n\nType /buy if you want to buy message credits.")]
 
         if not self.check_usage(chat_id, context):
             return []
 
-        if incoming_message.text == "/start":
-            return [Block(text=f"New conversation started. chat_id: {chat_id}")]
-
-        if incoming_message.text == "/reset":
+        if incoming_message.text == "/new":
             self.get_memory(self.client, chat_id).chat_memory.clear()
-            return [Block(text="Conversation log cleared.")]
+            return [Block(text="New conversation started.")]
 
         conversation = self.get_agent(
             client=context.client,
