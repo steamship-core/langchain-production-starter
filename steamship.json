@@ -1,7 +1,7 @@
 {
 	"type": "package",
-	"handle": "langchain-telegram-bot",
-	"version": "1.0.12",
+	"handle": "",
+	"version": "",
 	"description": "",
 	"author": "",
 	"entrypoint": "Unused",
@@ -19,6 +19,16 @@
 			"description": "Your telegram bot token.\nLearn how to create one here: https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md",
 			"default": null
 		},
+		"payment_provider_token": {
+			"type": "string",
+			"description": "Payment provider token, obtained via @BotFather",
+			"default": null
+		},
+		"n_free_messages": {
+			"type": "number",
+			"description": "Number of free messages assigned to new users.",
+			"default": 0
+		},
 		"api_base": {
 			"type": "string",
 			"description": "The root API for Telegram",
@@ -32,11 +42,6 @@
 		"elevenlabs_voice_id": {
 			"type": "string",
 			"description": "Optional voice_id for ElevenLabs Voice Bot",
-			"default": ""
-		},
-		"chat_ids": {
-			"type": "string",
-			"description": "Comma separated list of whitelisted chat_id's",
 			"default": ""
 		},
 		"use_gpt4": {
