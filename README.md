@@ -24,7 +24,7 @@ Getting your agent online only takes 4 steps. If not, shoot me a message on [Dis
 
 1. Clone the repository
 2. Add your agent to `src/api.py`
-3. Install required dependencies: `pip install --upgrade steamship_langchain`
+3. Install required dependencies: `pip install --upgrade -r requirements.txt`
 4. Run `ship deploy && ship use`
 
 
@@ -35,7 +35,7 @@ To run your companion locally:
 
 ```
 pip install -r requirements.txt
-python main.py 
+python src/api.py 
 ```
 
 To deploy your companion & connect it to Telegram:
