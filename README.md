@@ -12,10 +12,11 @@ https://twitter.com/eniascailliau/status/1658841969211088905
 
 ## 🚀 Features
 
-- 🧠 Support for OpenAI GPT-4 and Google PaLM
+- 🧠 Support for OpenAI GPT-4 and GPT-3.5 
 - 🔗 Embeddable chat window
 - 🔌 Connect your chatbot to Telegram
 - 🔈 Give your Agent a voice
+- 💸 Moneytize your agent 
 
 ## Quick-start guide 🛠️
 
