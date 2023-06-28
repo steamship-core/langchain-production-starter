@@ -38,7 +38,7 @@ class ExtendedTelegramTransport(Transport):
         chat_id = message.get("chat", {}).get("id")
         try:
             incoming_message = self.parse_inbound(message)
-            if incoming_message is not None:
+            if incoming_message is not None and incoming_message.text is not None:
                 context = AgentContext.get_or_create(
                     self.client, context_keys={"chat_id": chat_id}
                 )
@@ -205,13 +205,10 @@ class ExtendedTelegramTransport(Transport):
         # Some incoming messages (like the group join message) don't have message text.
         # Rather than throw an error, we just don't return a Block.
         message_text = payload.get("text")
-        if message_text is not None:
-            result = Block(text=message_text)
-            result.set_chat_id(str(chat_id))
-            result.set_message_id(str(message_id))
-            return result
-        else:
-            return None
+        result = Block(text=message_text)
+        result.set_chat_id(str(chat_id))
+        result.set_message_id(str(message_id))
+        return result
 
     def build_emit_func(self, chat_id: str) -> EmitFunc:
         def new_emit_func(blocks: List[Block], metadata: Metadata):

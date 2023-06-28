@@ -25,11 +25,11 @@ from agent.utils import is_uuid, UUID_PATTERN
 
 class TelegramTransportConfig(Config):
     bot_token: str = Field(description="Telegram bot token, obtained via @BotFather")
-    payment_provider_token: str = Field(
-        description="Payment provider token, obtained via @BotFather"
+    payment_provider_token: Optional[str] = Field(
+        "", description="Optional Payment provider token, obtained via @BotFather"
     )
-    n_free_messages: int = Field(
-        0, description="Number of free messages assigned to new users."
+    n_free_messages: Optional[int] = Field(
+        5, description="Number of free messages assigned to new users."
     )
     api_base: str = Field(
         "https://api.telegram.org/bot", description="The root API for Telegram"
@@ -117,12 +117,20 @@ class LangChainTelegramBot(AgentService):
                     Block(text="🔴 You've used up all your message credits"),
                     Block(
                         text="Buy message credits to continue chatting."
-                        ""
+                        "\n\n"
                         "Tap the button:"
                     ),
                 ],
             )
-            self.send_invoice(chat_id)
+            if self.config.payment_provider_token:
+                self.send_invoice(chat_id)
+            else:
+                self.send_messages(
+                    context,
+                    [
+                        Block(text="😭 Payments not set up for this bot."),
+                    ],
+                )
             return False
         return True
 

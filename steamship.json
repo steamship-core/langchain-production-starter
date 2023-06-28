@@ -21,13 +21,13 @@
 		},
 		"payment_provider_token": {
 			"type": "string",
-			"description": "Payment provider token, obtained via @BotFather",
-			"default": null
+			"description": "Optional Payment provider token, obtained via @BotFather",
+			"default": ""
 		},
 		"n_free_messages": {
 			"type": "number",
 			"description": "Number of free messages assigned to new users.",
-			"default": 0
+			"default": 5
 		},
 		"api_base": {
 			"type": "string",

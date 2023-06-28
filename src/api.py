@@ -13,6 +13,7 @@ from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
 
 from agent.base import LangChainTelegramBot, TelegramTransportConfig
+
 # noinspection PyUnresolvedReferences
 from agent.tools import (
     GenerateImageTool,
@@ -53,7 +54,7 @@ You NEVER:
 class ChatbotConfig(TelegramTransportConfig):
     bot_token: str = Field(
         description="Your telegram bot token.\nLearn how to create one here: "
-                    "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
+        "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
     )
     elevenlabs_api_key: str = Field(
         default="", description="Optional API KEY for ElevenLabs Voice Bot"
@@ -64,7 +65,7 @@ class ChatbotConfig(TelegramTransportConfig):
     use_gpt4: bool = Field(
         True,
         description="If True, use GPT-4. Use GPT-3.5 if False. "
-                    "GPT-4 generates better responses at higher cost and latency.",
+        "GPT-4 generates better responses at higher cost and latency.",
     )
 
 
