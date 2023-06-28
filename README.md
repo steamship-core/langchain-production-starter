@@ -48,6 +48,9 @@ ship deploy && ship use
 You will need to fetch a Telegram key to connect your companion to Telegram. [This guide](/docs/register-telegram-bot.md) will show you how.
 
 
+If you want to set-up billing you will need to fetch a payment provider key. [This guide](/docs/payment-telegram-bot.md) will show you how.
+
+
 ## Development 😎
 
 
