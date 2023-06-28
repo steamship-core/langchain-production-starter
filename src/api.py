@@ -13,10 +13,14 @@ from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
 
 from agent.base import LangChainTelegramBot, TelegramTransportConfig
-from agent.tools.image import GenerateImageTool
-from agent.tools.search import SearchTool
-from agent.tools.speech import GenerateSpeechTool
-from agent.tools.video_message import VideoMessageTool
+
+# noinspection PyUnresolvedReferences
+from agent.tools import (
+    GenerateImageTool,
+    SearchTool,
+    GenerateSpeechTool,
+    VideoMessageTool,
+)
 
 MODEL_NAME = "gpt-3.5-turbo-0613"  # or "gpt-4-0613"
 TEMPERATURE = 0.7
@@ -50,7 +54,7 @@ You NEVER:
 class ChatbotConfig(TelegramTransportConfig):
     bot_token: str = Field(
         description="Your telegram bot token.\nLearn how to create one here: "
-                    "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
+        "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
     )
     elevenlabs_api_key: str = Field(
         default="", description="Optional API KEY for ElevenLabs Voice Bot"
@@ -61,7 +65,7 @@ class ChatbotConfig(TelegramTransportConfig):
     use_gpt4: bool = Field(
         True,
         description="If True, use GPT-4. Use GPT-3.5 if False. "
-                    "GPT-4 generates better responses at higher cost and latency.",
+        "GPT-4 generates better responses at higher cost and latency.",
     )
 
 
@@ -107,17 +111,17 @@ class MyBot(LangChainTelegramBot):
             SearchTool(client),
             # MyTool(client),
             GenerateImageTool(client),
-            VideoMessageTool(client, voice_tool=self.voice_tool()),
+            # VideoMessageTool(client, voice_tool=self.voice_tool()),
         ]
 
     def voice_tool(self) -> Optional[Tool]:
         """Return tool to generate spoken version of output text."""
-        # return None
-        return GenerateSpeechTool(
-            client=self.client,
-            voice_id=self.config.elevenlabs_voice_id,
-            elevenlabs_api_key=self.config.elevenlabs_api_key,
-        )
+        return None
+        # return GenerateSpeechTool(
+        # client=self.client,
+        # voice_id=self.config.elevenlabs_voice_id,
+        # elevenlabs_api_key=self.config.elevenlabs_api_key,
+        # )
 
     @classmethod
     def config_cls(cls) -> Type[Config]:
@@ -129,6 +133,9 @@ if __name__ == "__main__":
     AgentREPL(
         MyBot,
         method="prompt",
-        agent_package_config={"botToken": "not-a-real-token-for-local-testing",
-                              "paymentProviderToken": "not-a-real-token-for-local-testing"},
+        agent_package_config={
+            "botToken": "not-a-real-token-for-local-testing",
+            "paymentProviderToken": "not-a-real-token-for-local-testing",
+            "n_free_messages": 10,
+        },
     ).run()

@@ -39,7 +39,9 @@ class ExtendedTelegramTransport(Transport):
         try:
             incoming_message = self.parse_inbound(message)
             if incoming_message is not None:
-                context = AgentContext.get_or_create(self.client, context_keys={"chat_id": chat_id})
+                context = AgentContext.get_or_create(
+                    self.client, context_keys={"chat_id": chat_id}
+                )
                 context.chat_history.append_user_message(
                     text=incoming_message.text, tags=incoming_message.tags
                 )
@@ -63,12 +65,12 @@ class ExtendedTelegramTransport(Transport):
         return InvocableResponse(string="OK")
 
     def __init__(
-            self,
-            client: Steamship,
-            config: TelegramTransportConfig,
-            agent_service: AgentService,
-            agent: Agent,
-            set_payment_plan: Callable
+        self,
+        client: Steamship,
+        config: TelegramTransportConfig,
+        agent_service: AgentService,
+        agent: Agent,
+        set_payment_plan: Callable,
     ):
         super().__init__(client=client)
         self.api_root = f"{config.api_base}{config.bot_token}"
@@ -134,7 +136,9 @@ class ExtendedTelegramTransport(Transport):
                         files={key: temp_file},
                     )
                     if resp.status_code != 200:
-                        logging.error(f"Error sending message: {resp.text} [{resp.status_code}]")
+                        logging.error(
+                            f"Error sending message: {resp.text} [{resp.status_code}]"
+                        )
                         raise SteamshipError(
                             f"Message not sent to chat {chat_id} successfully: {resp.text}"
                         )
@@ -144,9 +148,9 @@ class ExtendedTelegramTransport(Transport):
                 )
 
     def _get_file(self, file_id: str) -> Dict[str, Any]:
-        return requests.get(f"{self.api_root}/getFile", params={"file_id": file_id}).json()[
-            "result"
-        ]
+        return requests.get(
+            f"{self.api_root}/getFile", params={"file_id": file_id}
+        ).json()["result"]
 
     def _get_file_url(self, file_id: str) -> str:
         return f"https://api.telegram.org/file/bot{self.bot_token}/{self._get_file(file_id)['file_path']}"
@@ -158,7 +162,9 @@ class ExtendedTelegramTransport(Transport):
 
         return result.content
 
-    def _parse_inbound(self, payload: dict, context: Optional[dict] = None) -> Optional[Block]:
+    def _parse_inbound(
+        self, payload: dict, context: Optional[dict] = None
+    ) -> Optional[Block]:
         """Parses an inbound Telegram message."""
 
         chat = payload.get("chat")
@@ -176,7 +182,9 @@ class ExtendedTelegramTransport(Transport):
 
         message_id = payload.get("message_id")
         if message_id is None:
-            raise SteamshipError(f"No 'message_id' found in Telegram message: {payload}")
+            raise SteamshipError(
+                f"No 'message_id' found in Telegram message: {payload}"
+            )
 
         if not isinstance(message_id, int):
             raise SteamshipError(

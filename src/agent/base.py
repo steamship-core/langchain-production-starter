@@ -25,9 +25,15 @@ from agent.utils import is_uuid, UUID_PATTERN
 
 class TelegramTransportConfig(Config):
     bot_token: str = Field(description="Telegram bot token, obtained via @BotFather")
-    payment_provider_token: str = Field(description="Payment provider token, obtained via @BotFather")
-    n_free_messages: int = Field(0, description="Number of free messages assigned to new users.")
-    api_base: str = Field("https://api.telegram.org/bot", description="The root API for Telegram")
+    payment_provider_token: str = Field(
+        description="Payment provider token, obtained via @BotFather"
+    )
+    n_free_messages: int = Field(
+        0, description="Number of free messages assigned to new users."
+    )
+    api_base: str = Field(
+        "https://api.telegram.org/bot", description="The root API for Telegram"
+    )
 
 
 class LangChainTelegramBot(AgentService):
@@ -45,11 +51,13 @@ class LangChainTelegramBot(AgentService):
                 "currency": "USD",
                 "title": "🍏 50 messages",
                 "description": "Tap the button below and pay",
-                "prices": [{
-                    "label": "🍏 50 messages",
-                    "amount": 599,
-                }],
-                "provider_token": self.config.payment_provider_token
+                "prices": [
+                    {
+                        "label": "🍏 50 messages",
+                        "amount": 599,
+                    }
+                ],
+                "provider_token": self.config.payment_provider_token,
             },
         )
 
@@ -69,11 +77,16 @@ class LangChainTelegramBot(AgentService):
 
         self.add_mixin(
             ExtendedTelegramTransport(
-                client=self.client, config=self.config, agent_service=self, agent=None,
-                set_payment_plan=self.set_payment_plan
+                client=self.client,
+                config=self.config,
+                agent_service=self,
+                agent=None,
+                set_payment_plan=self.set_payment_plan,
             )
         )
-        self.usage = UsageTracker(self.client, n_free_messages=self.config.n_free_messages)
+        self.usage = UsageTracker(
+            self.client, n_free_messages=self.config.n_free_messages
+        )
 
     @classmethod
     def config_cls(cls) -> Type[Config]:
@@ -98,26 +111,33 @@ class LangChainTelegramBot(AgentService):
         if not self.usage.exists(chat_id):
             self.usage.add_user(chat_id)
         if self.usage.usage_exceeded(chat_id):
-            self.send_messages(context, [
-                Block(text="🔴 You've used up all your message credits"),
-                Block(
-                    text="Buy message credits to continue chatting."
-                         ""
-                         "Tap the button:"
-                ),
-            ])
+            self.send_messages(
+                context,
+                [
+                    Block(text="🔴 You've used up all your message credits"),
+                    Block(
+                        text="Buy message credits to continue chatting."
+                        ""
+                        "Tap the button:"
+                    ),
+                ],
+            )
             self.send_invoice(chat_id)
             return False
         return True
 
     def respond(
-            self, incoming_message: Block, chat_id: str, context: AgentContext
+        self, incoming_message: Block, chat_id: str, context: AgentContext
     ) -> List[Block]:
 
         if incoming_message.text == "/balance":
             usage_entry = self.usage.get_usage(chat_id)
-            return [Block(text=f"You have {usage_entry.message_limit - usage_entry.message_count} messages left. "
-                               f"\n\nType /buy if you want to buy message credits.")]
+            return [
+                Block(
+                    text=f"You have {usage_entry.message_limit - usage_entry.message_count} messages left. "
+                    f"\n\nType /buy if you want to buy message credits."
+                )
+            ]
 
         if not self.check_usage(chat_id, context):
             return []
@@ -166,7 +186,9 @@ class LangChainTelegramBot(AgentService):
         chat_id = context.metadata.get("chat_id")
 
         incoming_message = context.chat_history.last_user_message
-        output_messages = self.respond(incoming_message, chat_id or incoming_message.chat_id, context)
+        output_messages = self.respond(
+            incoming_message, chat_id or incoming_message.chat_id, context
+        )
         self.send_messages(context, output_messages)
 
     @post("prompt")
