@@ -41,7 +41,7 @@ python src/api.py
 To deploy your companion & connect it to Telegram:
 
 ```
-pip install steamship
+pip install -r requirements.txt
 ship deploy && ship use 
 ```
 

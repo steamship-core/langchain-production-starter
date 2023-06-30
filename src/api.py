@@ -8,6 +8,7 @@ from langchain.schema import SystemMessage
 from pydantic import Field
 from steamship import Steamship
 from steamship.invocable import Config
+from steamship.invocable.mixins.indexer_pipeline_mixin import IndexerPipelineMixin
 from steamship.utils.repl import AgentREPL
 from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
@@ -71,6 +72,13 @@ class ChatbotConfig(TelegramTransportConfig):
 
 class MyBot(LangChainTelegramBot):
     config: ChatbotConfig
+
+    indexer_mixin: IndexerPipelineMixin
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.indexer_mixin = IndexerPipelineMixin(self.client, self)
+        self.add_mixin(self.indexer_mixin, permit_overwrite_of_existing_methods=True)
 
     def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
         llm = ChatOpenAI(

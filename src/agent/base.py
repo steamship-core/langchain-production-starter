@@ -82,7 +82,8 @@ class LangChainTelegramBot(AgentService):
                 agent_service=self,
                 agent=None,
                 set_payment_plan=self.set_payment_plan,
-            )
+            ),
+            permit_overwrite_of_existing_methods=True,
         )
         self.usage = UsageTracker(
             self.client, n_free_messages=self.config.n_free_messages

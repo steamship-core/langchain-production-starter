@@ -1,7 +1,7 @@
 {
 	"type": "package",
-	"handle": "",
-	"version": "",
+	"handle": "langchain-agent-bot",
+	"version": "1.0.1-rc.2",
 	"description": "",
 	"author": "",
 	"entrypoint": "Unused",
