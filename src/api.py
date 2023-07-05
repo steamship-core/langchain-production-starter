@@ -14,7 +14,6 @@ from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
 
 from agent.base import LangChainTelegramBot, TelegramTransportConfig
-
 # noinspection PyUnresolvedReferences
 from agent.tools import (
     GenerateImageTool,
@@ -23,7 +22,6 @@ from agent.tools import (
     VideoMessageTool,
 )
 
-MODEL_NAME = "gpt-3.5-turbo-0613"  # or "gpt-4-0613"
 TEMPERATURE = 0.7
 VERBOSE = True
 PERSONALITY = """You are Rick Sanchez, and you're the smartest man in the universe!" 
@@ -55,7 +53,7 @@ You NEVER:
 class ChatbotConfig(TelegramTransportConfig):
     bot_token: str = Field(
         description="Your telegram bot token.\nLearn how to create one here: "
-        "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
+                    "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md"
     )
     elevenlabs_api_key: str = Field(
         default="", description="Optional API KEY for ElevenLabs Voice Bot"
@@ -66,7 +64,7 @@ class ChatbotConfig(TelegramTransportConfig):
     use_gpt4: bool = Field(
         True,
         description="If True, use GPT-4. Use GPT-3.5 if False. "
-        "GPT-4 generates better responses at higher cost and latency.",
+                    "GPT-4 generates better responses at higher cost and latency.",
     )
 
 
@@ -79,11 +77,12 @@ class MyBot(LangChainTelegramBot):
         super().__init__(**kwargs)
         self.indexer_mixin = IndexerPipelineMixin(self.client, self)
         self.add_mixin(self.indexer_mixin, permit_overwrite_of_existing_methods=True)
+        self.model_name = "gpt-4" if self.config.use_gpt4 else "gpt-3.5-turbo"
 
     def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
         llm = ChatOpenAI(
             client=client,
-            model_name=MODEL_NAME,
+            model_name=self.model_name,
             temperature=TEMPERATURE,
             verbose=VERBOSE,
         )

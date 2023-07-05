@@ -1,0 +1,7 @@
+{
+    "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+    "elevenlabs_api_key": "OPTIONAL_ELEVENLABS_API_KEY",
+    "elevenlabs_voice_id": "OPTIONAL_ELEVENLABS_VOICE_ID",
+    "n_free_messages": 2,
+    "payment_provider_token": "OPTIONAL_TELEGRAM_PAYMENT_PROVIDER_TOKEN"
+}
