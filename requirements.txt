@@ -6,3 +6,4 @@ langchain==0.0.209
 pypdf
 youtube_transcript_api
 pytube
+scrapetube
