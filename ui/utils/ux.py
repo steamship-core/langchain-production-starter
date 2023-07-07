@@ -9,11 +9,13 @@ def sidebar():
         if not st.session_state.get("steamship_api_key"):
             st.write("[Click here to get your free key](https://www.steamship.com/account/api)")
 
-        st.write("[View the source code](https://github.com/steamship-packages/langchain-production-starter)")
+        st.write("[👀 View the source code](https://github.com/steamship-packages/langchain-production-starter)")
+        st.write("[✉️ Send feedback](https://twitter.com/eniascailliau/)")
+
         # "[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/streamlit/llm-examples?quickstart=1)"
 
         if instance:=st.session_state.get("instance"):
-            st.write(f"[Manage on Steamship](https://steamship.com/workspaces/{instance.handle}/packages/{instance.handle})")
+            st.write(f"[⚙️Manage on Steamship](https://steamship.com/workspaces/{instance.handle}/packages/{instance.handle})")
 
 
 def get_api_key():
