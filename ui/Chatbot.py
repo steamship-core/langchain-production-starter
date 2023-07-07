@@ -26,8 +26,12 @@ if not st.session_state.get("instance"):
     st.session_state.channel_url = channel_url
 
     if st.button("🧠 Scrape & Train"):
-        st.session_state.channel_name = channel_name = snake_case(
-            Channel(channel_url.replace("@", "c/")).channel_name)
+        try:
+            st.session_state.channel_name = channel_name = snake_case(
+                Channel(channel_url.replace("@", "c/")).channel_name)
+        except Exception:
+            st.error("Youtube channel not found. Please provide a Youtube channel url")
+            st.stop()
 
         st.session_state.instance = get_instance(channel_name)
 
