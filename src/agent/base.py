@@ -26,8 +26,11 @@ from agent.utils import is_uuid, UUID_PATTERN
 
 
 class TelegramTransportConfig(Config):
-    bot_token: Optional[str] = Field("", description="Your telegram bot token.\nLearn how to create one here: "
-                                                     "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md")
+    bot_token: Optional[str] = Field(
+        "",
+        description="Your telegram bot token.\nLearn how to create one here: "
+        "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md",
+    )
     payment_provider_token: Optional[str] = Field(
         "", description="Optional Payment provider token, obtained via @BotFather"
     )
@@ -100,7 +103,7 @@ class LangChainTelegramBot(AgentService):
     @post("connect_telegram", public=True)
     def connect_telegram(self, bot_token: str):
         webhook_url = self.context.invocable_url + "telegram_respond"
-        self.store.set("bot_token", {"token" : bot_token})
+        self.store.set("bot_token", {"token": bot_token})
 
         api_root = f"https://api.telegram.org/bot{bot_token}"
 
@@ -118,9 +121,7 @@ class LangChainTelegramBot(AgentService):
         )
 
         if not response.ok:
-            return (
-                f"Could not set webhook for bot. Webhook URL was {webhook_url}. Telegram response message: {response.text}"
-            )
+            return f"Could not set webhook for bot. Webhook URL was {webhook_url}. Telegram response message: {response.text}"
         else:
             return "OK"
 
@@ -153,8 +154,8 @@ class LangChainTelegramBot(AgentService):
                     Block(text="🔴 You've used up all your message credits"),
                     Block(
                         text="Buy message credits to continue chatting."
-                             "\n\n"
-                             "Tap the button:"
+                        "\n\n"
+                        "Tap the button:"
                     ),
                 ],
             )
@@ -171,7 +172,7 @@ class LangChainTelegramBot(AgentService):
         return True
 
     def respond(
-            self, incoming_message: Block, chat_id: str, context: AgentContext
+        self, incoming_message: Block, chat_id: str, context: AgentContext
     ) -> List[Block]:
 
         if incoming_message.text == "/balance":
@@ -179,7 +180,7 @@ class LangChainTelegramBot(AgentService):
             return [
                 Block(
                     text=f"You have {usage_entry.message_limit - usage_entry.message_count} messages left. "
-                         f"\n\nType /buy if you want to buy message credits."
+                    f"\n\nType /buy if you want to buy message credits."
                 )
             ]
 

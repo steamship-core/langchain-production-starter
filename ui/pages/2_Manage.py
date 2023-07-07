@@ -17,22 +17,27 @@ def load_and_show_videos(instance):
     videos = []
     for file in files:
         for block in file.blocks:
-            tag_key_to_value = {
-                tag.kind: tag.name for tag in block.tags
-            }
+            tag_key_to_value = {tag.kind: tag.name for tag in block.tags}
             videos.append(
                 {
                     "Title": tag_key_to_value.get("title"),
-                    "source": "https://www.youtube.com/watch?v=" + tag_key_to_value.get("source"),
+                    "source": "https://www.youtube.com/watch?v="
+                    + tag_key_to_value.get("source"),
                     "thumbnail_url": tag_key_to_value.get("thumbnail_url"),
-                    "Status": [tag.name for tag in file.tags if tag.kind == "status"][0]
-                })
+                    "Status": [tag.name for tag in file.tags if tag.kind == "status"][
+                        0
+                    ],
+                }
+            )
     df = pd.DataFrame(videos)
-    table.dataframe(df,
-                    column_config={"Title": st.column_config.LinkColumn("source"),
-                                   "thumbnail_url": st.column_config.ImageColumn(label="Thumbnail")},
-                    column_order=["thumbnail_url", "Title", "Status"]
-                    )
+    table.dataframe(
+        df,
+        column_config={
+            "Title": st.column_config.LinkColumn("source"),
+            "thumbnail_url": st.column_config.ImageColumn(label="Thumbnail"),
+        },
+        column_order=["thumbnail_url", "Title", "Status"],
+    )
 
     return videos
 

@@ -27,7 +27,10 @@ class UsageTracker:
 
     def usage_exceeded(self, chat_id: str):
         usage_entry = self.kv_store.get(chat_id)
-        return usage_entry["message_limit"] > 0 and usage_entry["message_count"] >= usage_entry["message_limit"]
+        return (
+            usage_entry["message_limit"] > 0
+            and usage_entry["message_count"] >= usage_entry["message_limit"]
+        )
 
     def add_user(self, chat_id: str):
         self._set_usage(chat_id, UsageEntry(message_limit=self.n_free_messages))

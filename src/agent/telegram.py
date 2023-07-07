@@ -33,8 +33,6 @@ class ExtendedTelegramTransport(TelegramTransport):
     def instance_init(self, config: Config, invocation_context: InvocationContext):
         pass
 
-
-
     @post("telegram_respond", public=True, permit_overwrite_of_existing=True)
     def telegram_respond(self, **kwargs) -> InvocableResponse[str]:
         """Endpoint implementing the Telegram WebHook contract. This is a PUBLIC endpoint since Telegram cannot pass a Bearer token."""

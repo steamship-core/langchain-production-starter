@@ -2,20 +2,22 @@ import sys
 from pathlib import Path
 
 import streamlit as st
-from pytube import Channel
 from steamship.cli.create_instance import load_manifest
+
+from utils.youtube import get_channel_details
 
 sys.path.append(str((Path(__file__) / "..").resolve()))
 st.set_page_config(page_title="🚢 Youtube to Chatbot")
 
 from utils.data import index_youtube_channel
-from utils.utils import snake_case, get_instance
+from utils.utils import get_instance, snake_case
 from utils.ux import sidebar, get_api_key
 
 # Start page
-st.title('🚢 Youtube-To-Chatbot')
+st.title("🚢 Youtube-To-Chatbot")
 st.write(
-    "A project brought to life by [Enias](https://twitter.com/eniascailliau), inspired by [Emmet Halm](https://twitter.com/ehalm_) and [Taranjeet](https://twitter.com/taranjeetio)")
+    "A project brought to life by [Enias](https://twitter.com/eniascailliau), inspired by [Emmet Halm](https://twitter.com/ehalm_) and [Taranjeet](https://twitter.com/taranjeetio)"
+)
 
 sidebar()
 
@@ -27,8 +29,9 @@ if not st.session_state.get("instance"):
 
     if st.button("🧠 Scrape & Train"):
         try:
-            st.session_state.channel_name = channel_name = snake_case(
-                Channel(channel_url.replace("@", "c/")).channel_name)
+            channel_name, channel_thumbnail = get_channel_details(channel_url)
+            st.session_state.channel_thumbnail = channel_thumbnail
+            st.session_state.channel_name = channel_name = snake_case(channel_name)
         except Exception:
             st.error("Youtube channel not found. Please provide a Youtube channel url")
             st.stop()
@@ -46,10 +49,14 @@ else:
     instance = st.session_state.instance
 
     st.header(f"Start chatting with Rik")
-    st.subheader(f"🧠 Rick gleaned wisdom from: {channel_name.replace('_', ' ').title()}")
-
+    st.subheader(
+        f"🧠 Rick gleaned wisdom from: {channel_name.replace('_', ' ').title()}"
+    )
+    st.image(st.session_state.channel_thumbnail)
     if "messages" not in st.session_state:
-        st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
+        st.session_state["messages"] = [
+            {"role": "assistant", "content": "How can I help you?"}
+        ]
 
     for msg in st.session_state.messages:
         st.chat_message(msg["role"]).write(msg["content"])
@@ -64,4 +71,3 @@ else:
                 response = instance.invoke("prompt", prompt=prompt)
             st.write(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
-

@@ -22,6 +22,7 @@ from steamship_langchain.memory import ChatMessageHistory
 from steamship_langchain.vectorstores import SteamshipVectorStore
 
 from agent.base import LangChainTelegramBot, TelegramTransportConfig
+
 # noinspection PyUnresolvedReferences
 from agent.tools import (
     GenerateImageTool,
@@ -74,7 +75,7 @@ class ChatbotConfig(TelegramTransportConfig):
     use_gpt4: bool = Field(
         True,
         description="If True, use GPT-4. Use GPT-3.5 if False. "
-                    "GPT-4 generates better responses at higher cost and latency.",
+        "GPT-4 generates better responses at higher cost and latency.",
     )
 
 
@@ -92,14 +93,19 @@ class MyBot(LangChainTelegramBot):
         super().__init__(**kwargs)
         self.model_name = "gpt-4" if self.config.use_gpt4 else "gpt-3.5-turbo"
 
-    def chunk(self, text: List[Document], chunk_size: int = 1_000, chunk_overlap: int = 300) -> List[Document]:
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    def chunk(
+        self, text: List[Document], chunk_size: int = 1_000, chunk_overlap: int = 300
+    ) -> List[Document]:
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        )
         return text_splitter.split_documents(text)
 
     def load(self, file_type: FileType, content_or_url: str) -> List[Document]:
-        loaders = {FileType.YOUTUBE: YoutubeLoader.from_youtube_url(
-            content_or_url, add_video_info=True
-        ),
+        loaders = {
+            FileType.YOUTUBE: YoutubeLoader.from_youtube_url(
+                content_or_url, add_video_info=True
+            ),
             FileType.PDF: PyPDFLoader(content_or_url),
         }
         return loaders[file_type].load()
@@ -112,9 +118,9 @@ class MyBot(LangChainTelegramBot):
             return title
         # Remove leading/trailing whitespaces and convert to lowercase
         title = title.strip().lower()
-        title = re.sub(r' ', '_', title)
-        title = re.sub(r'[^a-z0-9-_]', '', title)
-        title = re.sub(r'[-_]{2,}', '-', title)
+        title = re.sub(r" ", "_", title)
+        title = re.sub(r"[^a-z0-9-_]", "", title)
+        title = re.sub(r"[-_]{2,}", "-", title)
         return title
 
     @post("add_resource", public=True)
@@ -122,12 +128,20 @@ class MyBot(LangChainTelegramBot):
         loaded_documents = self.load(file_type, content)
         for document in loaded_documents:
             try:
-                f = File.create(client=self.client,
-                                handle=self.convert_to_handle(document.metadata.get("title")),
-                                blocks=[Block(text=document.page_content, tags=[
-                                    Tag(kind=k, name=v) for k, v in document.metadata.items()
-                                ])],
-                                tags=[Tag(kind="type", name="youtube_video")])
+                f = File.create(
+                    client=self.client,
+                    handle=self.convert_to_handle(document.metadata.get("title")),
+                    blocks=[
+                        Block(
+                            text=document.page_content,
+                            tags=[
+                                Tag(kind=k, name=v)
+                                for k, v in document.metadata.items()
+                            ],
+                        )
+                    ],
+                    tags=[Tag(kind="type", name="youtube_video")],
+                )
                 update_file_status(self.client, f, "Importing")
                 chunks = self.chunk([document])
                 update_file_status(self.client, f, "Indexing")
@@ -167,8 +181,8 @@ class MyBot(LangChainTelegramBot):
     def get_vectorstore(self) -> VectorStore:
         return SteamshipVectorStore(
             client=self.client,
-            embedding='text-embedding-ada-002',
-            index_name='youtube-chatbot-agent',
+            embedding="text-embedding-ada-002",
+            index_name="youtube-chatbot-agent",
         )
 
     def get_memory(self, chat_id: str):
@@ -190,15 +204,15 @@ class MyBot(LangChainTelegramBot):
                 verbose=VERBOSE,
             ),
             chain_type="stuff",
-            retriever=self.get_vectorstore().as_retriever(k=3)
+            retriever=self.get_vectorstore().as_retriever(k=3),
         )
 
         qa_tool = Tool(
-            name='knowledge_base',
+            name="knowledge_base",
             func=lambda x: qa({"question": x}, return_only_outputs=False),
             description=(
-                'always use this to answer questions. Input should be a fully formed question.'
-            )
+                "always use this to answer questions. Input should be a fully formed question."
+            ),
         )
 
         return [qa_tool]

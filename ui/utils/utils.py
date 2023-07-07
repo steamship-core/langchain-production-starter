@@ -9,10 +9,11 @@ from utils.ux import get_api_key
 
 
 def snake_case(s):
-    return '_'.join(
-        sub('([A-Z][a-z]+)', r' \1',
-            sub('([A-Z]+)', r' \1',
-                s.replace('-', ' '))).split()).lower()
+    return "_".join(
+        sub(
+            "([A-Z][a-z]+)", r" \1", sub("([A-Z]+)", r" \1", s.replace("-", " "))
+        ).split()
+    ).lower()
 
 
 def get_instance(channel_name) -> PackageInstance:
