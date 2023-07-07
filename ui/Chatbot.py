@@ -32,7 +32,8 @@ if not st.session_state.get("instance"):
             channel_name, channel_thumbnail = get_channel_details(channel_url)
             st.session_state.channel_thumbnail = channel_thumbnail
             st.session_state.channel_name = channel_name = snake_case(channel_name)
-        except Exception:
+        except Exception as e:
+            print(e)
             st.error("Youtube channel not found. Please provide a Youtube channel url")
             st.stop()
 
