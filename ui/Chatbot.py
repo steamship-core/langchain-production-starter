@@ -48,6 +48,10 @@ else:
     channel_name = st.session_state.channel_name
     instance = st.session_state.instance
 
+    if st.button("+ New bot"):
+        st.session_state.instance = None
+        st.experimental_rerun()
+
     st.header(f"Start chatting with Rik")
     st.subheader(
         f"🧠 Rick gleaned wisdom from: {channel_name.replace('_', ' ').title()}"
