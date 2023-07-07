@@ -43,6 +43,3 @@ def get_channel_details(channel_url):
     except Exception:
         pass
     return channel_name, channel_profile_pic
-
-
-print(get_channel_details("https://www.youtube.com/@AlexHormozi"))
