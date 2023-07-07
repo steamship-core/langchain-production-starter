@@ -1,14 +1,15 @@
+import logging
 from typing import Callable
 
 import requests
-from steamship import Steamship
+from steamship import Steamship, SteamshipError
 from steamship.agents.mixins.transports.telegram import (
     TelegramTransportConfig,
     TelegramTransport,
 )
 from steamship.agents.schema import Agent, AgentContext
 from steamship.agents.service.agent_service import AgentService
-from steamship.invocable import InvocableResponse, post
+from steamship.invocable import InvocableResponse, post, Config, InvocationContext
 
 
 class ExtendedTelegramTransport(TelegramTransport):
@@ -28,6 +29,11 @@ class ExtendedTelegramTransport(TelegramTransport):
     ):
         super().__init__(client, config, agent_service, agent)
         self.set_payment_plan = set_payment_plan
+
+    def instance_init(self, config: Config, invocation_context: InvocationContext):
+        pass
+
+
 
     @post("telegram_respond", public=True, permit_overwrite_of_existing=True)
     def telegram_respond(self, **kwargs) -> InvocableResponse[str]:

@@ -8,7 +8,7 @@ import requests
 from langchain.agents import Tool, AgentExecutor
 from langchain.memory.chat_memory import BaseChatMemory
 from pydantic import Field
-from steamship import Block, Steamship
+from steamship import Block
 from steamship.agents.mixins.transports.steamship_widget import SteamshipWidgetTransport
 from steamship.agents.schema import (
     AgentContext,
@@ -16,7 +16,9 @@ from steamship.agents.schema import (
     Agent,
 )
 from steamship.agents.service.agent_service import AgentService
+from steamship.cli.cli import cli
 from steamship.invocable import post, Config
+from steamship.utils.kv_store import KeyValueStore
 
 from agent.telegram import ExtendedTelegramTransport
 from agent.usage_tracking import UsageTracker
@@ -24,12 +26,13 @@ from agent.utils import is_uuid, UUID_PATTERN
 
 
 class TelegramTransportConfig(Config):
-    bot_token: str = Field(description="Telegram bot token, obtained via @BotFather")
+    bot_token: Optional[str] = Field("", description="Your telegram bot token.\nLearn how to create one here: "
+                                                     "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md")
     payment_provider_token: Optional[str] = Field(
         "", description="Optional Payment provider token, obtained via @BotFather"
     )
     n_free_messages: Optional[int] = Field(
-        5, description="Number of free messages assigned to new users."
+        -1, description="Number of free messages assigned to new users."
     )
     api_base: str = Field(
         "https://api.telegram.org/bot", description="The root API for Telegram"
@@ -71,10 +74,14 @@ class LangChainTelegramBot(AgentService):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.store = KeyValueStore(self.client, store_identifier="config")
+        bot_token = self.store.get("bot_token")
+        if bot_token:
+            bot_token = bot_token.get("token")
         self.add_mixin(
             SteamshipWidgetTransport(client=self.client, agent_service=self, agent=None)
         )
-
+        self.config.bot_token = bot_token
         self.add_mixin(
             ExtendedTelegramTransport(
                 client=self.client,
@@ -85,24 +92,52 @@ class LangChainTelegramBot(AgentService):
             ),
             permit_overwrite_of_existing_methods=True,
         )
+
         self.usage = UsageTracker(
             self.client, n_free_messages=self.config.n_free_messages
         )
+
+    @post("connect_telegram", public=True)
+    def connect_telegram(self, bot_token: str):
+        webhook_url = self.context.invocable_url + "telegram_respond"
+        self.store.set("bot_token", {"token" : bot_token})
+
+        api_root = f"https://api.telegram.org/bot{bot_token}"
+
+        logging.info(
+            f"Setting Telegram webhook URL: {webhook_url}. Post is to {api_root}/setWebhook"
+        )
+
+        response = requests.get(
+            f"{api_root}/setWebhook",
+            params={
+                "url": webhook_url,
+                "allowed_updates": ["message"],
+                "drop_pending_updates": True,
+            },
+        )
+
+        if not response.ok:
+            return (
+                f"Could not set webhook for bot. Webhook URL was {webhook_url}. Telegram response message: {response.text}"
+            )
+        else:
+            return "OK"
 
     @classmethod
     def config_cls(cls) -> Type[Config]:
         return TelegramTransportConfig
 
     @abstractmethod
-    def get_agent(self, client: Steamship, chat_id: str) -> AgentExecutor:
+    def get_agent(self, chat_id: str) -> AgentExecutor:
         raise NotImplementedError()
 
     @abstractmethod
-    def get_memory(self, client: Steamship, chat_id: str) -> BaseChatMemory:
+    def get_memory(self, chat_id: str) -> BaseChatMemory:
         raise NotImplementedError()
 
     @abstractmethod
-    def get_tools(self, client: Steamship, chat_id: str) -> List[Tool]:
+    def get_tools(self, chat_id: str) -> List[Tool]:
         raise NotImplementedError()
 
     def voice_tool(self) -> Optional[Tool]:
@@ -118,8 +153,8 @@ class LangChainTelegramBot(AgentService):
                     Block(text="🔴 You've used up all your message credits"),
                     Block(
                         text="Buy message credits to continue chatting."
-                        "\n\n"
-                        "Tap the button:"
+                             "\n\n"
+                             "Tap the button:"
                     ),
                 ],
             )
@@ -136,7 +171,7 @@ class LangChainTelegramBot(AgentService):
         return True
 
     def respond(
-        self, incoming_message: Block, chat_id: str, context: AgentContext
+            self, incoming_message: Block, chat_id: str, context: AgentContext
     ) -> List[Block]:
 
         if incoming_message.text == "/balance":
@@ -144,7 +179,7 @@ class LangChainTelegramBot(AgentService):
             return [
                 Block(
                     text=f"You have {usage_entry.message_limit - usage_entry.message_count} messages left. "
-                    f"\n\nType /buy if you want to buy message credits."
+                         f"\n\nType /buy if you want to buy message credits."
                 )
             ]
 
@@ -152,12 +187,11 @@ class LangChainTelegramBot(AgentService):
             return []
 
         if incoming_message.text == "/new":
-            self.get_memory(self.client, chat_id).chat_memory.clear()
+            self.get_memory(chat_id).chat_memory.clear()
             return [Block(text="New conversation started.")]
 
         conversation = self.get_agent(
-            client=context.client,
-            chat_id=chat_id,
+            chat_id,
         )
         response = conversation.run(input=incoming_message.text)
 
@@ -221,3 +255,6 @@ class LangChainTelegramBot(AgentService):
         context.emit_funcs.append(sync_emit)
         self.run_agent(None, context)  # Maybe I override this
         return output
+
+
+cli

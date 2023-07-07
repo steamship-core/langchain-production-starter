@@ -1,7 +1,7 @@
 {
 	"type": "package",
 	"handle": "langchain-agent-bot",
-	"version": "1.0.1-rc.2",
+	"version": "1.9.0",
 	"description": "",
 	"author": "",
 	"entrypoint": "Unused",
@@ -17,7 +17,7 @@
 		"bot_token": {
 			"type": "string",
 			"description": "Your telegram bot token.\nLearn how to create one here: https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md",
-			"default": null
+			"default": ""
 		},
 		"payment_provider_token": {
 			"type": "string",
@@ -27,7 +27,7 @@
 		"n_free_messages": {
 			"type": "number",
 			"description": "Number of free messages assigned to new users.",
-			"default": 5
+			"default": -1
 		},
 		"api_base": {
 			"type": "string",
