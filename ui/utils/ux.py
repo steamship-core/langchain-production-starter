@@ -4,7 +4,8 @@ from steamship import PackageInstance
 
 def sidebar():
     with st.sidebar:
-        st.text_input("Steamship API Key", key="steamship_api_key", type="password")
+        api_key = st.text_input("Steamship API Key", value=st.session_state.get("steamship_api_key"), type="password")
+        st.session_state.steamship_api_key = api_key
         if not st.session_state.get("steamship_api_key"):
             st.write("[Click here to get your free key](https://www.steamship.com/account/api)")
 

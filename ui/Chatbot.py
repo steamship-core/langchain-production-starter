@@ -41,7 +41,8 @@ else:
     channel_name = st.session_state.channel_name
     instance = st.session_state.instance
 
-    st.header(f"Start chatting with {channel_name.replace('_', ' ').title()}")
+    st.header(f"Start chatting with Rik")
+    st.subheader(f"🧠 Rick gleaned wisdom from: {channel_name.replace('_', ' ').title()}")
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
