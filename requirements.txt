@@ -7,3 +7,4 @@ pypdf
 youtube_transcript_api
 pytube
 scrapetube
+google-api-python-client
