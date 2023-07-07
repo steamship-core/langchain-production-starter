@@ -59,8 +59,9 @@ else:
 
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.chat_message("user").write(prompt)
-        response = instance.invoke("prompt", prompt=prompt)
-
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                response = instance.invoke("prompt", prompt=prompt)
+            st.write(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-        st.chat_message("assistant").write(response)
