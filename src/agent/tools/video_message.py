@@ -13,7 +13,7 @@ NAME = "VideoMessage"
 DESCRIPTION = """
 Useful for when you want to send a video message. 
 Input: The message you want to say in a video.  
-Output: the UUID of the generated video. 
+Output: the UUID of the generated video message with your message. 
 """
 
 PLUGIN_HANDLE = "did-video-generator"
@@ -31,6 +31,7 @@ class VideoMessageTool(Tool):
             func=self.run,
             description=DESCRIPTION,
             client=client,
+            return_direct=True,
             voice_tool=voice_tool,
         )
 
@@ -70,9 +71,9 @@ class VideoMessageTool(Tool):
         blocks = task.output.blocks
         logging.info(f"[{self.name}] got back {len(blocks)} blocks")
         if len(blocks) > 0:
-            logging.info(f"[{self.name}] image size: {len(blocks[0].raw())}")
+            logging.info(f"[{self.name}] video size: {len(blocks[0].raw())}")
             return blocks[0].id
-        raise SteamshipError(f"[{self.name}] Tool unable to generate image!")
+        raise SteamshipError(f"[{self.name}] Tool unable to generate video!")
 
 
 def make_block_public(client, block):

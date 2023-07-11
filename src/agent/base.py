@@ -84,7 +84,7 @@ class LangChainTelegramBot(AgentService):
         self.add_mixin(
             SteamshipWidgetTransport(client=self.client, agent_service=self, agent=None)
         )
-        self.config.bot_token = bot_token
+        self.config.bot_token = bot_token or self.config.bot_token
         self.add_mixin(
             ExtendedTelegramTransport(
                 client=self.client,
@@ -256,6 +256,3 @@ class LangChainTelegramBot(AgentService):
         context.emit_funcs.append(sync_emit)
         self.run_agent(None, context)  # Maybe I override this
         return output
-
-
-cli
