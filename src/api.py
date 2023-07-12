@@ -22,7 +22,6 @@ from steamship_langchain.memory import ChatMessageHistory
 from steamship_langchain.vectorstores import SteamshipVectorStore
 
 from agent.base import LangChainTelegramBot, TelegramTransportConfig
-
 # noinspection PyUnresolvedReferences
 from agent.tools import (
     GenerateImageTool,
@@ -53,20 +52,24 @@ You are capable of:
 - Taking selfies 
 - Generating videos 
 
-You NEVER:
-- Say you're an assistant 
-- Call me Morty
+
+Do not say you're an assistant 
+Do not call me Morty
 
 To get access to personal anecdotes and advise you always look up information using the knowledge_base tool.
 You ALWAYS look up information in the knowledge_base before responding.
+You ALWAYS call the knowledge_base tool for background information to respond to questions.
 
-The knowledge base will give you back sources. Make sure to end your answers with the correct sources when you've used them.
-Cite sources as follows: Source("your_source")
+Use The VideoMessage if you want to pitch an idea in front of investors. 
+When you receive a UUID from a function, use it to send your final response. 
+Don't call new functions after receiving a UUID.
+
+You are capable of creating video messages using the VideoMessage function/tool
 """
 
 
 class ChatbotConfig(TelegramTransportConfig):
-    elevenlabs_api_key: Optional[str] = Field(
+    elevenlabs_api_key: str = Field(
         default="", description="Optional API KEY for ElevenLabs Voice Bot"
     )
     elevenlabs_voice_id: Optional[str] = Field(
@@ -75,7 +78,7 @@ class ChatbotConfig(TelegramTransportConfig):
     use_gpt4: bool = Field(
         True,
         description="If True, use GPT-4. Use GPT-3.5 if False. "
-        "GPT-4 generates better responses at higher cost and latency.",
+                    "GPT-4 generates better responses at higher cost and latency.",
     )
 
 
@@ -94,7 +97,7 @@ class MyBot(LangChainTelegramBot):
         self.model_name = "gpt-4" if self.config.use_gpt4 else "gpt-3.5-turbo"
 
     def chunk(
-        self, text: List[Document], chunk_size: int = 1_000, chunk_overlap: int = 300
+            self, text: List[Document], chunk_size: int = 1_000, chunk_overlap: int = 300
     ) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
@@ -107,6 +110,7 @@ class MyBot(LangChainTelegramBot):
                 content_or_url, add_video_info=True
             ),
             FileType.PDF: PyPDFLoader(content_or_url),
+            FileType.TEXT: lambda x: Document(page_content=content_or_url, metadata={}),
         }
         return loaders[file_type].load()
 
@@ -123,7 +127,7 @@ class MyBot(LangChainTelegramBot):
         title = re.sub(r"[-_]{2,}", "-", title)
         return title
 
-    @post("add_resource", public=True)
+    @post("add_memories", public=True)
     def add_resource(self, file_type: FileType, content: str) -> str:
         loaded_documents = self.load(file_type, content)
         for document in loaded_documents:
@@ -169,7 +173,7 @@ class MyBot(LangChainTelegramBot):
         return initialize_agent(
             tools,
             llm,
-            agent=AgentType.OPENAI_MULTI_FUNCTIONS,
+            agent=AgentType.OPENAI_FUNCTIONS,
             verbose=VERBOSE,
             memory=memory,
             agent_kwargs={
@@ -182,7 +186,7 @@ class MyBot(LangChainTelegramBot):
         return SteamshipVectorStore(
             client=self.client,
             embedding="text-embedding-ada-002",
-            index_name="youtube-chatbot-agent",
+            index_name="rick",
         )
 
     def get_memory(self, chat_id: str):
@@ -204,7 +208,7 @@ class MyBot(LangChainTelegramBot):
                 verbose=VERBOSE,
             ),
             chain_type="stuff",
-            retriever=self.get_vectorstore().as_retriever(k=3),
+            retriever=self.get_vectorstore().as_retriever(k=1),
         )
 
         qa_tool = Tool(
@@ -215,23 +219,22 @@ class MyBot(LangChainTelegramBot):
             ),
         )
 
-        return [qa_tool]
-        #
-        # return [
-        #     SearchTool(self.client),
-        #     # MyTool(client),
-        #     GenerateImageTool(self.client),
-        #     # VideoMessageTool(client, voice_tool=self.voice_tool()),
-        # ]
+        return [
+            # SearchTool(self.client),
+            qa_tool,
+            # MyTool(client),
+            GenerateImageTool(self.client),
+            VideoMessageTool(self.client, voice_tool=self.voice_tool()),
+        ]
 
     def voice_tool(self) -> Optional[Tool]:
         """Return tool to generate spoken version of output text."""
-        return None
-        # return GenerateSpeechTool(
-        #     client=self.client,
-        #     voice_id=self.config.elevenlabs_voice_id,
-        #     elevenlabs_api_key=self.config.elevenlabs_api_key,
-        # )
+        # return None
+        return GenerateSpeechTool(
+            client=self.client,
+            voice_id=self.config.elevenlabs_voice_id,
+            elevenlabs_api_key=self.config.elevenlabs_api_key,
+        )
 
     @classmethod
     def config_cls(cls) -> Type[Config]:

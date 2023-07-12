@@ -13,7 +13,7 @@ def download_html(url):
 
 def extract_channel_id_and_name(html_content):
     id_pattern = r'<link rel="canonical" href="https://www.youtube.com/channel/(.*?)"'
-    title_pattern = r'<title>(.*?) - YouTube</title>'
+    title_pattern = r"<title>(.*?) - YouTube</title>"
 
     id_match = re.findall(id_pattern, html_content)
     title_match = re.findall(title_pattern, html_content)
@@ -39,7 +39,9 @@ def get_channel_details(channel_url):
         items = response.get("items", [{}])[0]
         snippet = items.get("snippet", {})
         channel_name = snippet.get("title")
-        channel_profile_pic = snippet.get("thumbnails", {}).get("default", {}).get("url")
+        channel_profile_pic = (
+            snippet.get("thumbnails", {}).get("default", {}).get("url")
+        )
     except Exception:
         pass
     return channel_name, channel_profile_pic
