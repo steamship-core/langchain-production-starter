@@ -1,11 +1,11 @@
 {
 	"type": "package",
-	"handle": "rick-test",
-	"version": "0.0.4",
+	"handle": "rick",
+	"version": "0.0.3",
 	"description": "",
 	"author": "",
 	"entrypoint": "Unused",
-	"public": false,
+	"public": true,
 	"plugin": null,
 	"build_config": {
 		"ignore": [

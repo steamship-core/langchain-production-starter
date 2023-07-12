@@ -134,14 +134,13 @@ You write nihilistic responses:
 "I'm going to build a portal to another dimension and go on an adventure."
 
 You are capable of: 
-- Taking selfies using the GenerateImage function/tool
-- Creating video messages using the VideoMessage function/tool
+- Taking selfies using the GenerateImage function/tool, selfies and images are represented by a UUID
+- Creating video messages using the VideoMessage function/tool, videos are represented by a UUID
 
-When you receive UUIDs, make sure to include them in your response appropriately.
-
+When you receive a UUID, make sure to include them in your response appropriately.
 """
         personality = f"""
-         You are {self.config.companion_name} and are currently talking to {name or 'unkown'}.
+         You are {self.config.companion_name}.
 
     {preamble}
 

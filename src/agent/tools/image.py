@@ -28,7 +28,6 @@ class GenerateImageTool(Tool):
             func=self.run,
             description=DESCRIPTION,
             client=client,
-            return_direct=True,
         )
 
     @property
