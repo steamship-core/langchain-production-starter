@@ -1,11 +1,11 @@
 {
 	"type": "package",
-	"handle": "rick",
-	"version": "0.0.1",
+	"handle": "rick-test",
+	"version": "0.0.1-rc.2",
 	"description": "",
 	"author": "",
 	"entrypoint": "Unused",
-	"public": true,
+	"public": false,
 	"plugin": null,
 	"build_config": {
 		"ignore": [
@@ -16,18 +16,8 @@
 	"configTemplate": {
 		"bot_token": {
 			"type": "string",
-			"description": "Your telegram bot token.\nLearn how to create one here: https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md",
-			"default": ""
-		},
-		"payment_provider_token": {
-			"type": "string",
-			"description": "Optional Payment provider token, obtained via @BotFather",
-			"default": ""
-		},
-		"n_free_messages": {
-			"type": "number",
-			"description": "Number of free messages assigned to new users.",
-			"default": -1
+			"description": "The secret token for your Telegram bot",
+			"default": null
 		},
 		"api_base": {
 			"type": "string",

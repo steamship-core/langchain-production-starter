@@ -1,8 +1,6 @@
 import logging
-import re
-import time
 from enum import Enum
-from typing import List, Type, Optional
+from typing import List, Type, Optional, Union
 
 from langchain.agents import Tool, initialize_agent, AgentType, AgentExecutor
 from langchain.chains import RetrievalQAWithSourcesChain
@@ -12,7 +10,7 @@ from langchain.prompts import MessagesPlaceholder
 from langchain.schema import SystemMessage, Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import VectorStore
-from pydantic import Field
+from pydantic import Field, AnyUrl
 from steamship import File, Tag, Block, SteamshipError
 from steamship.invocable import Config, post
 from steamship.utils.file_tags import update_file_status
@@ -29,6 +27,7 @@ from agent.tools import (
     GenerateSpeechTool,
     VideoMessageTool,
 )
+from agent.utils import convert_to_handle
 
 TEMPERATURE = 0.2
 VERBOSE = True
@@ -69,6 +68,8 @@ You are capable of creating video messages using the VideoMessage function/tool
 
 
 class ChatbotConfig(TelegramTransportConfig):
+    name: str = Field(description="The name of your companion")
+    bot_token: str = Field(default="", description="The secret token for your Telegram bot")
     elevenlabs_api_key: str = Field(
         default="", description="Optional API KEY for ElevenLabs Voice Bot"
     )
@@ -89,6 +90,15 @@ class FileType(str, Enum):
     TEXT = "TEXT"
 
 
+FILE_LOADERS = {
+    FileType.YOUTUBE: lambda content_or_url: YoutubeLoader.from_youtube_url(
+        content_or_url, add_video_info=True
+    ),
+    FileType.PDF: lambda content_or_url: PyPDFLoader(content_or_url),
+    FileType.TEXT: lambda content_or_url: Document(page_content=content_or_url, metadata={}),
+}
+
+
 class MyBot(LangChainTelegramBot):
     config: ChatbotConfig
 
@@ -96,45 +106,14 @@ class MyBot(LangChainTelegramBot):
         super().__init__(**kwargs)
         self.model_name = "gpt-4" if self.config.use_gpt4 else "gpt-3.5-turbo"
 
-    def chunk(
-            self, text: List[Document], chunk_size: int = 1_000, chunk_overlap: int = 300
-    ) -> List[Document]:
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap
-        )
-        return text_splitter.split_documents(text)
-
-    def load(self, file_type: FileType, content_or_url: str) -> List[Document]:
-        loaders = {
-            FileType.YOUTUBE: YoutubeLoader.from_youtube_url(
-                content_or_url, add_video_info=True
-            ),
-            FileType.PDF: PyPDFLoader(content_or_url),
-            FileType.TEXT: lambda x: Document(page_content=content_or_url, metadata={}),
-        }
-        return loaders[file_type].load()
-
-    def index(self, chunks: List[Document]):
-        self.get_vectorstore().add_documents(chunks)
-
-    def convert_to_handle(self, title: str):
-        if not title:
-            return title
-        # Remove leading/trailing whitespaces and convert to lowercase
-        title = title.strip().lower()
-        title = re.sub(r" ", "_", title)
-        title = re.sub(r"[^a-z0-9-_]", "", title)
-        title = re.sub(r"[-_]{2,}", "-", title)
-        return title
-
-    @post("add_memories", public=True)
-    def add_resource(self, file_type: FileType, content: str) -> str:
-        loaded_documents = self.load(file_type, content)
+    @post("add_resource", public=True)
+    def add_resource(self, file_type: FileType, content: Union[str, AnyUrl]) -> str:
+        loaded_documents = FILE_LOADERS[file_type](content).load()
         for document in loaded_documents:
             try:
                 f = File.create(
                     client=self.client,
-                    handle=self.convert_to_handle(document.metadata.get("title")),
+                    handle=convert_to_handle(document.metadata.get("title")),
                     blocks=[
                         Block(
                             text=document.page_content,
@@ -147,10 +126,11 @@ class MyBot(LangChainTelegramBot):
                     tags=[Tag(kind="type", name="youtube_video")],
                 )
                 update_file_status(self.client, f, "Importing")
-                chunks = self.chunk([document])
+                chunks = RecursiveCharacterTextSplitter(
+                    chunk_size=1_000, chunk_overlap=500
+                ).split_documents([document])
                 update_file_status(self.client, f, "Indexing")
-                self.index(chunks)
-                time.sleep(3)
+                self.get_vectorstore().add_documents(chunks)
                 update_file_status(self.client, f, "Indexed")
             except SteamshipError as e:
                 if e.code == "ObjectExists":
@@ -186,7 +166,7 @@ class MyBot(LangChainTelegramBot):
         return SteamshipVectorStore(
             client=self.client,
             embedding="text-embedding-ada-002",
-            index_name="rick",
+            index_name=self.config.name,
         )
 
     def get_memory(self, chat_id: str):

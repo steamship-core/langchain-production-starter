@@ -14,10 +14,14 @@ def add_backstory():
     p = (Path(__file__) / ".." / companion_name).resolve()
     client = Steamship(workspace=workspace)
     if not p.exists():
-        print(f"Couldn't find data for {companion_name}. Consider adding txt files to {p.resolve()}")
+        print(
+            f"Couldn't find data for {companion_name}. Consider adding txt files to {p.resolve()}"
+        )
     else:
         for document in p.iterdir():
-            d = Document(page_content=document.open().read(), metadata={"source": p.name})
+            d = Document(
+                page_content=document.open().read(), metadata={"source": p.name}
+            )
 
             chunks = RecursiveCharacterTextSplitter(
                 chunk_size=1000, chunk_overlap=300
@@ -32,5 +36,5 @@ def add_backstory():
             vector_store.add_documents(chunks)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     add_backstory()
