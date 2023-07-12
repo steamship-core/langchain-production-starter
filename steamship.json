@@ -1,7 +1,7 @@
 {
 	"type": "package",
 	"handle": "langchain-agent-bot",
-	"version": "2.1.0-rc.6",
+	"version": "2.3.0",
 	"description": "",
 	"author": "",
 	"entrypoint": "Unused",
@@ -47,7 +47,7 @@
 		"use_gpt4": {
 			"type": "boolean",
 			"description": "If True, use GPT-4. Use GPT-3.5 if False. GPT-4 generates better responses at higher cost and latency.",
-			"default": false
+			"default": true
 		}
 	},
 	"steamshipRegistry": {
