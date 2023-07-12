@@ -6,8 +6,6 @@ UUID_PATTERN = re.compile(
     r"([0-9A-Za-z]{8}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{12})"
 )
 
-MAX_FREE_MESSAGES = 10
-
 
 def is_uuid(uuid_to_test: str, version: int = 4) -> bool:
     """Check a string to see if it is actually a UUID."""

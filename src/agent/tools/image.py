@@ -5,7 +5,6 @@ import logging
 from langchain.agents import Tool
 from steamship import Steamship
 from steamship.base.error import SteamshipError
-from steamship.data.plugin.plugin_instance import PluginInstance
 
 NAME = "GenerateImage"
 
@@ -25,7 +24,11 @@ class GenerateImageTool(Tool):
 
     def __init__(self, client: Steamship):
         super().__init__(
-            name=NAME, func=self.run, description=DESCRIPTION, client=client
+            name=NAME,
+            func=self.run,
+            description=DESCRIPTION,
+            client=client,
+            return_direct=True,
         )
 
     @property

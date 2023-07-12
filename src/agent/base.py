@@ -92,11 +92,15 @@ class LangChainTelegramBot(AgentService):
     def get_tools(self, chat_id: str) -> List[Tool]:
         raise NotImplementedError()
 
+    @abstractmethod
+    def get_relevant_history(self, prompt: str) -> str:
+        raise NotImplementedError()
+
     def voice_tool(self) -> Optional[Tool]:
         return None
 
     def respond(
-            self, incoming_message: Block, chat_id: str, context: AgentContext
+        self, incoming_message: Block, chat_id: str, context: AgentContext
     ) -> List[Block]:
 
         if incoming_message.text == "/new":
@@ -106,11 +110,15 @@ class LangChainTelegramBot(AgentService):
         agent = self.get_agent(
             chat_id,
         )
-        response = agent.run(input=incoming_message.text)
+        response = agent.run(
+            input=incoming_message.text,
+            relevantHistory=self.get_relevant_history(incoming_message.text),
+        )
 
         response = replace_markdown_with_uuid(response)
         response = UUID_PATTERN.split(response)
         response = [re.sub(r"^\W+", "", el) for el in response]
+        response = [el for el in response if el]
         if audio_tool := self.voice_tool():
             response_messages = []
             for message in response:
