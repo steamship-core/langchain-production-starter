@@ -16,7 +16,6 @@ from steamship.agents.schema import (
     Agent,
 )
 from steamship.agents.service.agent_service import AgentService
-from steamship.cli.cli import cli
 from steamship.invocable import post, Config
 from steamship.utils.kv_store import KeyValueStore
 
@@ -29,7 +28,7 @@ class TelegramTransportConfig(Config):
     bot_token: Optional[str] = Field(
         "",
         description="Your telegram bot token.\nLearn how to create one here: "
-        "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md",
+                    "https://github.com/steamship-packages/langchain-agent-production-starter/blob/main/docs/register-telegram-bot.md",
     )
     payment_provider_token: Optional[str] = Field(
         "", description="Optional Payment provider token, obtained via @BotFather"
@@ -84,7 +83,7 @@ class LangChainTelegramBot(AgentService):
         self.add_mixin(
             SteamshipWidgetTransport(client=self.client, agent_service=self, agent=None)
         )
-        self.config.bot_token = bot_token or self.config.bot_token
+        self.config.bot_token = self.config.bot_token or bot_token
         self.add_mixin(
             ExtendedTelegramTransport(
                 client=self.client,
@@ -154,8 +153,8 @@ class LangChainTelegramBot(AgentService):
                     Block(text="🔴 You've used up all your message credits"),
                     Block(
                         text="Buy message credits to continue chatting."
-                        "\n\n"
-                        "Tap the button:"
+                             "\n\n"
+                             "Tap the button:"
                     ),
                 ],
             )
@@ -172,7 +171,7 @@ class LangChainTelegramBot(AgentService):
         return True
 
     def respond(
-        self, incoming_message: Block, chat_id: str, context: AgentContext
+            self, incoming_message: Block, chat_id: str, context: AgentContext
     ) -> List[Block]:
 
         if incoming_message.text == "/balance":
@@ -180,7 +179,7 @@ class LangChainTelegramBot(AgentService):
             return [
                 Block(
                     text=f"You have {usage_entry.message_limit - usage_entry.message_count} messages left. "
-                    f"\n\nType /buy if you want to buy message credits."
+                         f"\n\nType /buy if you want to buy message credits."
                 )
             ]
 
@@ -214,12 +213,16 @@ class LangChainTelegramBot(AgentService):
             response_messages = response
 
         self.usage.increase_message_count(chat_id)
-        return [
-            Block.get(self.client, _id=response)
-            if is_uuid(response)
-            else Block(text=response)
-            for response in response_messages
-        ]
+        response_blocks = []
+        for response in response_messages:
+            if is_uuid(response):
+                b = Block.get(self.client, _id=response)
+                b.set_public_data(True)
+                b.url = b.raw_data_url
+                response_blocks.append(b)
+            else:
+                response_blocks.append(Block(text=response))
+        return response_blocks
 
     def send_messages(self, context: AgentContext, output_messages: List[Block]):
         for func in context.emit_funcs:
