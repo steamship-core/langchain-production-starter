@@ -81,7 +81,7 @@ class LangChainTelegramBot(AgentService):
         return TelegramTransportConfig
 
     @abstractmethod
-    def get_agent(self, chat_id: str) -> AgentExecutor:
+    def get_agent(self, chat_id: str, name: Optional[str] = None) -> AgentExecutor:
         raise NotImplementedError()
 
     @abstractmethod
@@ -100,7 +100,7 @@ class LangChainTelegramBot(AgentService):
         return None
 
     def respond(
-        self, incoming_message: Block, chat_id: str, context: AgentContext
+            self, incoming_message: Block, chat_id: str, context: AgentContext, name: Optional[str] = None
     ) -> List[Block]:
 
         if incoming_message.text == "/new":
@@ -109,6 +109,7 @@ class LangChainTelegramBot(AgentService):
 
         agent = self.get_agent(
             chat_id,
+            name
         )
         response = agent.run(
             input=incoming_message.text,
@@ -136,19 +137,19 @@ class LangChainTelegramBot(AgentService):
             for response in response_messages
         ]
 
-    def run_agent(self, agent: Agent, context: AgentContext):
+    def run_agent(self, agent: Agent, context: AgentContext, name: Optional[str] = None, ):
         chat_id = context.metadata.get("chat_id")
 
         incoming_message = context.chat_history.last_user_message
         output_messages = self.respond(
-            incoming_message, chat_id or incoming_message.chat_id, context
+            incoming_message, chat_id or incoming_message.chat_id, context, name
         )
         for func in context.emit_funcs:
             logging.info(f"Emitting via function: {func.__name__}")
             func(output_messages, context.metadata)
 
     @post("prompt")
-    def prompt(self, prompt: str) -> str:
+    def prompt(self, prompt: str, name: Optional[str] = None) -> str:
         """Run an agent with the provided text as the input."""
 
         context = AgentContext.get_or_create(self.client, {"id": str(uuid.uuid4())})
@@ -166,5 +167,5 @@ class LangChainTelegramBot(AgentService):
                     output += f"{block.text}\n"
 
         context.emit_funcs.append(sync_emit)
-        self.run_agent(None, context)
+        self.run_agent(None, context, name)
         return output

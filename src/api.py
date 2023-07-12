@@ -19,7 +19,6 @@ from steamship_langchain.memory import ChatMessageHistory
 from steamship_langchain.vectorstores import SteamshipVectorStore
 
 from agent.base import LangChainTelegramBot, TelegramTransportConfig
-
 # noinspection PyUnresolvedReferences
 from agent.tools import (
     GenerateImageTool,
@@ -108,7 +107,7 @@ class MyBot(LangChainTelegramBot):
                 return e
         return "Added."
 
-    def get_agent(self, chat_id: str) -> AgentExecutor:
+    def get_agent(self, chat_id: str, name: Optional[str] = None) -> AgentExecutor:
         llm = ChatOpenAI(
             client=self.client,
             model_name=self.model_name,
@@ -120,9 +119,6 @@ class MyBot(LangChainTelegramBot):
 
         memory = self.get_memory(chat_id=chat_id)
 
-        # TEST
-        clerkUserName = "David"
-        name = "Rick"
         preamble = """Your Attributes:
 - sarcastic
 - witty
@@ -145,7 +141,7 @@ When you receive UUIDs, make sure to include them in your response appropriately
 
 """
         personality = f"""
-         You are {name} and are currently talking to {clerkUserName}.
+         You are {self.config.companion_name} and are currently talking to {name or 'unkown'}.
 
     {preamble}
 
