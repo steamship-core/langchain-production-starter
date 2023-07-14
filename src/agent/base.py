@@ -130,12 +130,16 @@ class LangChainTelegramBot(AgentService):
         else:
             response_messages = response
 
-        return [
-            Block.get(self.client, _id=response)
-            if is_uuid(response)
-            else Block(text=response)
-            for response in response_messages
-        ]
+        response_blocks = []
+        for response in response_messages:
+            if is_uuid(response):
+                b = Block.get(self.client, _id=response)
+                b.set_public_data(True)
+                b.url = b.raw_data_url
+                response_blocks.append(b)
+            else:
+                response_blocks.append(Block(text=response))
+        return response_blocks
 
     def run_agent(self, agent: Agent, context: AgentContext, name: Optional[str] = None, ):
         chat_id = context.metadata.get("chat_id")
