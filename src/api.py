@@ -133,7 +133,7 @@ class MyBot(LangChainTelegramBot):
             except SteamshipError as e:
                 if e.code == "ObjectExists":
                     return "Failed. Resource already added."
-                return e
+                return str(e)
         return "Added."
 
     def get_agent(self, chat_id: str) -> AgentExecutor:

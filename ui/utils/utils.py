@@ -24,7 +24,9 @@ def get_instance(channel_name) -> PackageInstance:
 
     try:
         client = Steamship(api_key=api_key, workspace=channel_name)
-        instance = client.use(manifest.handle, instance_handle=channel_name)
+        instance = client.use(manifest.handle,
+                              instance_handle=channel_name,
+                              version=manifest.version)
         st.text(
             f"Web URL: https://steamship.com/workspaces/{channel_name}/packages/{instance.handle}"
         )

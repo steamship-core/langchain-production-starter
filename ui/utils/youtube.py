@@ -42,6 +42,6 @@ def get_channel_details(channel_url):
         channel_profile_pic = (
             snippet.get("thumbnails", {}).get("default", {}).get("url")
         )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error loading youtube data {e}")
     return channel_name, channel_profile_pic
