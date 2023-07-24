@@ -10,7 +10,7 @@ NAME = "GenerateImage"
 
 DESCRIPTION = """
 Useful for when you need to generate an image. 
-Input: A detailed prompt describing an image. Add SINGLE CHARACTER to your prompt if you want to be featured alone in the picture, like in a selfie.
+Input: A detailed prompt describing an image. Be detailed, don't just say 'A picture of me' Instead say picture Rick Sanchez. Don't just say 'My dog' instead describe your dog in detail.
 Output: the UUID of a generated image
 """
 
@@ -23,10 +23,10 @@ NEGATIVE_PROMPT = (
 )
 
 PROMPT_TEMPLATE = (
-    "Full body portrait, Hyper realistic Rick Sanchez SINGLE CHARACTER,"
-    "strong features, neon space glow in the dark colors, "
-    "hyper detailed, shot on Hasselblad H4D 200MS Digital Camera, Mitakon Speedmaster 65mm f/1. 4 XCD, "
-    "Galaxy, Dimensional effect, Fresnel lighting --q 5 --ar 1:2 --s 1000"
+    "full body pose, hyperrealistic photograph of rick sanchez from rick and morty, dim volumetric lighting, 8 k, "
+    "octane beautifully detailed render, extremely hyper detailed, intricate, epic composition, cinematic lighting, "
+    "masterpiece, trending on artstation, very very detailed, stunning, hdr, smooth, sharp focus, high resolution, "
+    "award, winning photo, dslr, 5 0 mm"
 )
 
 
