@@ -49,7 +49,7 @@ class LangChainTelegramBot(AgentService):
         bot_token = self.store.get("bot_token")
         if bot_token:
             bot_token = bot_token.get("token")
-        self.config.bot_token = bot_token or self.config.bot_token
+        self.config.bot_token = self.config.bot_token or bot_token
 
         # Add transport mixins
         self.add_mixin(
