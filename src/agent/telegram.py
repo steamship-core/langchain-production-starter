@@ -19,12 +19,12 @@ class ExtendedTelegramTransport(TelegramTransport):
     set_payment_plan: Callable
 
     def __init__(
-            self,
-            set_payment_plan: Callable,
-            client: Steamship,
-            config: TelegramTransportConfig,
-            agent_service: AgentService,
-            agent: Agent,
+        self,
+        set_payment_plan: Callable,
+        client: Steamship,
+        config: TelegramTransportConfig,
+        agent_service: AgentService,
+        agent: Agent,
     ):
         super().__init__(client, config, agent_service, agent)
         self.set_payment_plan = set_payment_plan

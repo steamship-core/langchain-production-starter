@@ -16,7 +16,7 @@ def snake_case(s):
     ).lower()
 
 
-def get_instance(channel_name) -> PackageInstance:
+def get_instance(channel_name, n_retries=0) -> PackageInstance:
     api_key = get_api_key()
     manifest = load_manifest()
 
@@ -24,9 +24,9 @@ def get_instance(channel_name) -> PackageInstance:
 
     try:
         client = Steamship(api_key=api_key, workspace=channel_name)
-        instance = client.use(manifest.handle,
-                              instance_handle=channel_name,
-                              version=manifest.version)
+        instance = client.use(
+            manifest.handle, instance_handle=channel_name, version=manifest.version
+        )
         st.text(
             f"Web URL: https://steamship.com/workspaces/{channel_name}/packages/{instance.handle}"
         )
@@ -34,4 +34,7 @@ def get_instance(channel_name) -> PackageInstance:
         return instance
 
     except SteamshipError as e:
-        return get_instance(f"{channel_name}-{uuid1()}")
+        if n_retries < 1:
+            return get_instance(f"{channel_name}-{uuid1()}", n_retries + 1)
+        else:
+            raise e
