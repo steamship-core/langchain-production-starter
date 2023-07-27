@@ -1,6 +1,10 @@
-# Multi-Modal LangChain agents in Production
+# Multi-Modal LangChain agents in Production (Archived)
 [![Open in a VS Code Dev Container](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/steamship-packages/langchain-telegram-chatbot)
 [![Steamship](https://raw.githubusercontent.com/steamship-core/python-client/main/badge.svg)](https://www.steamship.com/build?utm_source=github&utm_medium=badge&utm_campaign=awesome_gpt_prompts&utm_id=awesome_gpt_prompts)
+
+
+> :warning: PROJECT ARCHIVED This repository is no longer actively maintained. We recommend you check out [multi-modal agent starters]() to develop multi-modal, production-ready agents.
+
 
 This starter project contains the necessary scaffolding to deploy LangChain Agents with memory and connect them to Telegram.
 
@@ -35,42 +39,35 @@ To run your companion locally:
 
 ```
 pip install -r requirements.txt
-python src/api.py 
+ship run local
 ```
 
 To deploy your companion & connect it to Telegram:
 
 ```
 pip install -r requirements.txt
-ship deploy && ship use 
+ship run remote 
 ```
 
 You will need to fetch a Telegram key to connect your companion to Telegram. [This guide](/docs/register-telegram-bot.md) will show you how.
 
 
-If you want to set-up billing you will need to fetch a payment provider key. [This guide](/docs/payment-telegram-bot.md) will show you how.
+If you want to set up billing you will need to fetch a payment provider key. [This guide](/docs/payment-telegram-bot.md) will show you how.
 
 
 ## Development 😎
 
 
-**..in a Local VS Code Container**
+**In a Local VS Code Container**: [![Open in a VS Code Dev Container](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/steamship-core/hackathon-starter)
 
-Just click here: [![Open in a VS Code Dev Container](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/steamship-core/hackathon-starter)
-
-**..in a Web VS Code Container**
-
-[![Open in a VS Code Dev Container](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/steamship-packages/langchain-telegram-chatbot)
+**In a Web VS Code Container**: [![Open in a VS Code Dev Container](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/steamship-packages/langchain-telegram-chatbot)
 
 
-**..on localhost with your own IDE**
-
-Clone this repository, then set up a Python virtual environment with:
+**On localhost with your own IDE**: Clone this repository, then set up a Python virtual environment with:
 
 ```bash
 pip install -r requirements.txt
 ```
-
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
@@ -78,4 +75,5 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## License
 This project is licensed under the MIT License.
 
-## Happy building! 🎉
+### Thank you for your past contributions and support! 🎉
+

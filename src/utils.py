@@ -16,16 +16,7 @@ def is_uuid(uuid_to_test: str, version: int = 4) -> bool:
         return False
 
 
-def convert_to_handle(s: str) -> str:
-    if not s:
-        return s
-    s = s.strip().lower()
-    s = re.sub(r" ", "_", s)
-    s = re.sub(r"[^a-z0-9-_]", "", s)
-    s = re.sub(r"[-_]{2,}", "-", s)
-    return s
-
-
 def replace_markdown_with_uuid(text):
-    pattern = r"(?:!\[.*?\]|)\((.*?)://?(.*?)\)"
-    return re.sub(pattern, r"\2", text)
+    pattern = r"\[.*?\]\((.*?)\)"
+    replaced_text = re.sub(pattern, r"\1", text)
+    return replaced_text.split(":")[-1]  # Return UUID

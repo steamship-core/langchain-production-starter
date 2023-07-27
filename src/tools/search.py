@@ -30,10 +30,3 @@ class SearchTool(Tool):
         """Respond to LLM prompts."""
         search = SteamshipSERP(client=self.client)
         return search.search(prompt)
-
-
-if __name__ == "__main__":
-    with Steamship.temporary_workspace() as client:
-        my_tool = SearchTool(client)
-        result = my_tool.run("What's the weather today?")
-        print(result)

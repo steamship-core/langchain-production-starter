@@ -1,6 +1,5 @@
 import logging
 import re
-import uuid
 from abc import abstractmethod
 from typing import List, Optional, Type
 
@@ -14,21 +13,14 @@ from steamship.agents.mixins.transports.telegram import (
 )
 from steamship.agents.schema import (
     AgentContext,
-    Metadata,
     Agent,
 )
 from steamship.agents.service.agent_service import AgentService
-from steamship.invocable import post, Config, InvocationContext
+from steamship.invocable import Config
+from steamship.invocable.mixins.indexer_pipeline_mixin import IndexerPipelineMixin
 from steamship.utils.kv_store import KeyValueStore
 
-from agent.utils import is_uuid, UUID_PATTERN, replace_markdown_with_uuid
-
-
-class ExtendedTelegramTransport(TelegramTransport):
-    def instance_init(self, config: Config, invocation_context: InvocationContext):
-        if config.bot_token:
-            self.api_root = f"{config.api_base}{config.bot_token}"
-            super().instance_init(config=config, invocation_context=invocation_context)
+from utils import is_uuid, UUID_PATTERN, replace_markdown_with_uuid
 
 
 class LangChainTelegramBot(AgentService):
@@ -37,26 +29,17 @@ class LangChainTelegramBot(AgentService):
     NOTE: To extend and deploy this agent, copy and paste the code into api.py.
     """
 
-    USED_MIXIN_CLASSES = [ExtendedTelegramTransport, SteamshipWidgetTransport]
+    USED_MIXIN_CLASSES = [TelegramTransport, SteamshipWidgetTransport, IndexerPipelineMixin]
     config: TelegramTransportConfig
 
     def __init__(self, **kwargs):
-
         super().__init__(**kwargs)
-
-        # Set up bot_token
-        self.store = KeyValueStore(self.client, store_identifier="config")
-        bot_token = self.store.get("bot_token")
-        if bot_token:
-            bot_token = bot_token.get("token")
-        self.config.bot_token = self.config.bot_token or bot_token
-
         # Add transport mixins
         self.add_mixin(
             SteamshipWidgetTransport(client=self.client, agent_service=self, agent=None)
         )
         self.add_mixin(
-            ExtendedTelegramTransport(
+            TelegramTransport(
                 client=self.client,
                 config=self.config,
                 agent_service=self,
@@ -64,17 +47,7 @@ class LangChainTelegramBot(AgentService):
             ),
             permit_overwrite_of_existing_methods=True,
         )
-
-    @post("connect_telegram", public=True)
-    def connect_telegram(self, bot_token: str):
-        self.store.set("bot_token", {"token": bot_token})
-        self.config.bot_token = bot_token or self.config.bot_token
-
-        try:
-            self.instance_init()
-            return "OK"
-        except Exception as e:
-            return f"Could not set webhook for bot. Exception: {e}"
+        self.add_mixin(IndexerPipelineMixin(client=self.client, invocable=self))
 
     @classmethod
     def config_cls(cls) -> Type[Config]:
@@ -92,30 +65,10 @@ class LangChainTelegramBot(AgentService):
     def get_tools(self, chat_id: str) -> List[Tool]:
         raise NotImplementedError()
 
-    @abstractmethod
-    def get_relevant_history(self, prompt: str) -> str:
-        raise NotImplementedError()
-
     def voice_tool(self) -> Optional[Tool]:
         return None
 
-    def respond(
-            self, incoming_message: Block, chat_id: str, context: AgentContext, name: Optional[str] = None
-    ) -> List[Block]:
-
-        if incoming_message.text == "/new":
-            self.get_memory(chat_id).chat_memory.clear()
-            return [Block(text="New conversation started.")]
-
-        agent = self.get_agent(
-            chat_id,
-            name
-        )
-        response = agent.run(
-            input=incoming_message.text,
-            relevantHistory=self.get_relevant_history(incoming_message.text),
-        )
-
+    def format_response(self, response):
         response = replace_markdown_with_uuid(response)
         response = UUID_PATTERN.split(response)
         response = [re.sub(r"^\W+", "", el) for el in response]
@@ -141,35 +94,26 @@ class LangChainTelegramBot(AgentService):
                 response_blocks.append(Block(text=response))
         return response_blocks
 
-    def run_agent(self, agent: Agent, context: AgentContext, name: Optional[str] = None, ):
-        chat_id = context.metadata.get("chat_id")
-
+    def run_agent(
+            self,
+            agent: Agent,
+            context: AgentContext,
+            name: Optional[str] = None,
+    ):
         incoming_message = context.chat_history.last_user_message
-        output_messages = self.respond(
-            incoming_message, chat_id or incoming_message.chat_id, context, name
+        chat_id = context.metadata.get("chat_id") or incoming_message.chat_id
+
+        if incoming_message.text == "/new":
+            self.get_memory(chat_id).chat_memory.clear()
+            return [Block(text="New conversation started.")]
+
+        response = self.get_agent(chat_id, name).run(
+            input=incoming_message.text,
+            relevantHistory=self.get_relevant_history(incoming_message.text),
         )
+
+        output_messages = self.format_response(response)
+
         for func in context.emit_funcs:
             logging.info(f"Emitting via function: {func.__name__}")
             func(output_messages, context.metadata)
-
-    @post("prompt")
-    def prompt(self, prompt: str, name: Optional[str] = None) -> str:
-        """Run an agent with the provided text as the input."""
-
-        context = AgentContext.get_or_create(self.client, {"id": str(uuid.uuid4())})
-        context.chat_history.append_user_message(prompt)
-
-        output = ""
-
-        def sync_emit(blocks: List[Block], meta: Metadata):
-            nonlocal output
-            for block in blocks:
-                if not block.is_text():
-                    block.set_public_data(True)
-                    output += f"({block.mime_type}: {block.raw_data_url})\n"
-                else:
-                    output += f"{block.text}\n"
-
-        context.emit_funcs.append(sync_emit)
-        self.run_agent(None, context, name)
-        return output

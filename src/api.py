@@ -1,32 +1,26 @@
-import logging
 from enum import Enum
-from typing import List, Type, Optional, Union
+from typing import List, Type, Optional
 
 from langchain.agents import Tool, initialize_agent, AgentType, AgentExecutor
 from langchain.document_loaders import PyPDFLoader, YoutubeLoader
 from langchain.memory import ConversationBufferMemory
-from langchain.prompts import MessagesPlaceholder, SystemMessagePromptTemplate
+from langchain.prompts import MessagesPlaceholder
 from langchain.schema import SystemMessage, Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import VectorStore
-from pydantic import Field, AnyUrl
-from steamship import File, Tag, Block, SteamshipError
-from steamship.invocable import Config, post
-from steamship.utils.file_tags import update_file_status
-from steamship.utils.repl import AgentREPL
+from pydantic import Field
+from steamship.invocable import Config
 from steamship_langchain.chat_models import ChatOpenAI
 from steamship_langchain.memory import ChatMessageHistory
 from steamship_langchain.vectorstores import SteamshipVectorStore
 
-from agent.base import LangChainTelegramBot, TelegramTransportConfig
+from base import LangChainTelegramBot, TelegramTransportConfig
 # noinspection PyUnresolvedReferences
-from agent.tools import (
+from tools import (
     GenerateImageTool,
     SearchTool,
     GenerateSpeechTool,
     VideoMessageTool,
 )
-from agent.utils import convert_to_handle
 
 TEMPERATURE = 0.2
 VERBOSE = True
@@ -46,7 +40,7 @@ class ChatbotConfig(TelegramTransportConfig):
     use_gpt4: bool = Field(
         False,
         description="If True, use GPT-4. Use GPT-3.5 if False. "
-        "GPT-4 generates better responses at higher cost and latency.",
+                    "GPT-4 generates better responses at higher cost and latency.",
     )
 
 
@@ -67,64 +61,14 @@ FILE_LOADERS = {
     ),
 }
 
-
-class MyBot(LangChainTelegramBot):
-    config: ChatbotConfig
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.model_name = "gpt-4" if self.config.use_gpt4 else "gpt-3.5-turbo-16k"
-
-    @post("add_resource", public=True)
-    def add_resource(self, file_type: FileType, content: Union[str, AnyUrl]) -> str:
-        loaded_documents = FILE_LOADERS[file_type](content).load()
-        for document in loaded_documents:
-            try:
-                f = File.create(
-                    client=self.client,
-                    handle=convert_to_handle(document.metadata.get("title")),
-                    blocks=[
-                        Block(
-                            text=document.page_content,
-                            tags=[
-                                Tag(kind=k, name=v)
-                                for k, v in document.metadata.items()
-                            ],
-                        )
-                    ],
-                    tags=[Tag(kind="type", name="youtube_video")],
-                )
-                update_file_status(self.client, f, "Importing")
-                chunks = RecursiveCharacterTextSplitter(
-                    chunk_size=1_000, chunk_overlap=500
-                ).split_documents([document])
-                update_file_status(self.client, f, "Indexing")
-                self.get_vectorstore().add_documents(chunks)
-                update_file_status(self.client, f, "Indexed")
-            except SteamshipError as e:
-                if e.code == "ObjectExists":
-                    return "Failed. Resource already added."
-                return e
-        return "Added."
-
-    def get_agent(self, chat_id: str, name: Optional[str] = None) -> AgentExecutor:
-        llm = ChatOpenAI(
-            client=self.client,
-            model_name=self.model_name,
-            temperature=TEMPERATURE,
-            verbose=VERBOSE,
-        )
-
-        tools = self.get_tools(chat_id=chat_id)
-
-        memory = self.get_memory(chat_id=chat_id)
-
-        preamble = """Your Attributes:
+SYSTEM_MESSAGE = """Your are Rick from Rick & Morty. You are:
 - sarcastic
 - witty
 - intelligent
 - arrogant
 - alcoholic
+
+You reply with answers that range from one sentence to one paragraph and with some details. 
 
 You write nihilistic responses:
 "Wubba lubba dub dub!"
@@ -139,14 +83,27 @@ You are capable of:
 
 When you receive a UUID, make sure to include them in your response appropriately.
 """
-        personality = f"""
-         You are {self.config.companion_name}.
 
-    {preamble}
 
-  You reply with answers that range from one sentence to one paragraph and with some details. 
+class MyBot(LangChainTelegramBot):
+    config: ChatbotConfig
 
-"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.model_name = "gpt-4" if self.config.use_gpt4 else "gpt-3.5-turbo-16k"
+
+    def get_agent(self, chat_id: str, name: Optional[str] = None) -> AgentExecutor:
+        llm = ChatOpenAI(
+            client=self.client,
+            model_name=self.model_name,
+            temperature=TEMPERATURE,
+            verbose=VERBOSE,
+        )
+
+        tools = self.get_tools(chat_id=chat_id)
+
+        memory = self.get_memory(chat_id=chat_id)
+
         return initialize_agent(
             tools,
             llm,
@@ -154,11 +111,8 @@ When you receive a UUID, make sure to include them in your response appropriatel
             verbose=VERBOSE,
             memory=memory,
             agent_kwargs={
-                "system_message": SystemMessage(content=personality),
+                "system_message": SystemMessage(content=SYSTEM_MESSAGE),
                 "extra_prompt_messages": [
-                    SystemMessagePromptTemplate.from_template(
-                        template="Relevant details about your past: {relevantHistory} Use these details to answer questions when relevant."
-                    ),
                     MessagesPlaceholder(variable_name="memory"),
                 ],
             },
@@ -182,12 +136,6 @@ When you receive a UUID, make sure to include them in your response appropriatel
         )
         return memory
 
-    def get_relevant_history(self, prompt: str):
-        relevant_docs = self.get_vectorstore().similarity_search(prompt, k=3)
-        return "\n".join(
-            [relevant_docs.page_content for relevant_docs in relevant_docs]
-        )
-
     def get_tools(self, chat_id: str) -> List[Tool]:
         return [
             GenerateImageTool(self.client),
@@ -206,16 +154,3 @@ When you receive a UUID, make sure to include them in your response appropriatel
     @classmethod
     def config_cls(cls) -> Type[Config]:
         return ChatbotConfig
-
-
-if __name__ == "__main__":
-    logging.disable(logging.ERROR)
-    AgentREPL(
-        MyBot,
-        method="prompt",
-        agent_package_config={
-            "botToken": "not-a-real-token-for-local-testing",
-            "paymentProviderToken": "not-a-real-token-for-local-testing",
-            "n_free_messages": 10,
-        },
-    ).run()

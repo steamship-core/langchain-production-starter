@@ -1,7 +1,7 @@
 steamship_langchain==0.0.25
 pytimeparse
 termcolor
-steamship==2.17.13rc3
+steamship@git+https://github.com/steamship-core/python-client@ec/optional-telegram
 langchain==0.0.209
 pypdf
 youtube_transcript_api

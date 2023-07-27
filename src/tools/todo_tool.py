@@ -6,7 +6,7 @@ from langchain.agents import Tool
 from steamship import Steamship
 from steamship_langchain.llms.openai import OpenAI
 
-NAME = "MyTool"
+NAME = "TodoListTool"
 
 DESCRIPTION = """
 Useful for when you need to come up with todo lists. 
@@ -20,7 +20,7 @@ Come up with a todo list for this objective: {objective}"
 """
 
 
-class MyTool(Tool):
+class TodoListTool(Tool):
     """Tool used to manage to-do lists."""
 
     client: Steamship
